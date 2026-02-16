@@ -5,39 +5,73 @@ const API_BASE = 'http://localhost:3002/api';
 
 // 模拟数据（当 API 不可用时）
 const MOCK_DATA = [
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', price: 97500, change24h: 2.34 },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', price: 3250, change24h: 1.87 },
-  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', price: 685, change24h: -0.45 },
-  { id: 'solana', symbol: 'SOL', name: 'Solana', price: 195, change24h: 5.23 },
-  { id: 'ripple', symbol: 'XRP', name: 'XRP', price: 2.85, change24h: 3.12 },
-  { id: 'cardano', symbol: 'ADA', name: 'Cardano', price: 0.98, change24h: -1.23 },
-  { id: 'dogecoin', symbol: 'DOGE', name: 'Dogecoin', price: 0.32, change24h: 4.56 },
-  { id: 'polkadot', symbol: 'DOT', name: 'Polkadot', price: 7.25, change24h: 0.89 }
+  { id: 'sh600519', symbol: '贵州茅台', name: 'Kweichow Moutai', market: 'A股', price: 1486.6, change24h: 0 },
+  { id: 'sh600036', symbol: '招商银行', name: 'China Merchants Bank', market: 'A股', price: 38.99, change24h: 0 },
+  { id: 'sh601318', symbol: '中国平安', name: 'Ping An Insurance', market: 'A股', price: 66.54, change24h: 0 },
+  { id: 'sh600900', symbol: '长江电力', name: 'China Yangtze Power', market: 'A股', price: 26.12, change24h: 0 },
+  { id: 'sz000858', symbol: '五粮液', name: 'Wuliangye Yibin', market: 'A股', price: 104.62, change24h: 0 },
+  { id: 'sz000333', symbol: '美的集团', name: 'Midea Group', market: 'A股', price: 79.8, change24h: 0 },
+  { id: 'sz002594', symbol: '比亚迪', name: 'BYD', market: 'A股', price: 91.16, change24h: 0 },
+  { id: 'sh688041', symbol: '中芯国际', name: 'SMIC', market: 'A股', price: 262.34, change24h: 0 },
+  { id: 'hk00700', symbol: '腾讯控股', name: 'Tencent', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk09988', symbol: '阿里巴巴', name: 'Alibaba', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk00981', symbol: '中国移动', name: 'China Mobile', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk00939', symbol: '建设银行', name: 'CCB', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk01810', symbol: '小米集团', name: 'Xiaomi', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk03690', symbol: '美团', name: 'Meituan', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk02318', symbol: '中国平安(港)', name: 'Ping An (HK)', market: '港股', price: 0, change24h: 0 },
+  { id: 'hk02020', symbol: '安踏体育', name: 'ANTA', market: '港股', price: 0, change24h: 0 }
 ];
 
 const MOCK_SIGNALS = {
-  bitcoin: { signal: 'BUY', rsi: 42, ma7: 96000, ma25: 95000 },
-  ethereum: { signal: 'BUY', rsi: 48, ma7: 3200, ma25: 3150 },
-  solana: { signal: 'STRONG_BUY', rsi: 65, ma7: 190, ma25: 180 },
-  ripple: { signal: 'HOLD', rsi: 55, ma7: 2.8, ma25: 2.75 }
+  'sh600519': { signal: 'BUY', rsi: 42 },
+  'sh600036': { signal: 'BUY', rsi: 48 },
+  'sh601318': { signal: 'HOLD', rsi: 55 },
+  'sz000858': { signal: 'BUY', rsi: 45 },
+  'sz002594': { signal: 'STRONG_BUY', rsi: 65 },
+  'hk00700': { signal: 'BUY', rsi: 52 }
 };
 
 export default function Home() {
-  const [coins, setCoins] = useState([]);
+  const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [useMock, setUseMock] = useState(false);
-  const [selectedCoin, setSelectedCoin] = useState(null);
+  const [selectedStock, setSelectedStock] = useState(null);
 
   const fetchPrices = async () => {
     try {
-      const res = await fetch(`${API_BASE}/crypto/prices`);
-      if (!res.ok) throw new Error('API Error');
-      const data = await res.json();
-      setCoins(data);
+      // 获取价格和信号
+      const [pricesRes, signalsRes] = await Promise.all([
+        fetch(`${API_BASE}/crypto/prices`),
+        fetch(`${API_BASE}/signals`)
+      ]);
+      
+      if (!pricesRes.ok) throw new Error('API Error');
+      
+      const pricesData = await pricesRes.json();
+      const signalsData = await signalsRes.json();
+      
+      // 合并价格和信号数据
+      const signalsMap = {};
+      signalsData.forEach(s => {
+        signalsMap[s.stock.id] = s.signal;
+      });
+      
+      const mergedData = pricesData.map(stock => ({
+        ...stock,
+        signal: signalsMap[stock.id] || { signal: 'HOLD', reason: '分析中' }
+      }));
+      
+      setStocks(mergedData);
       setUseMock(false);
     } catch (error) {
-      console.log('使用模拟数据');
-      setCoins(MOCK_DATA);
+      console.log('使用模拟数据', error.message);
+      // 合并模拟数据和模拟信号
+      const mergedMock = MOCK_DATA.map(stock => ({
+        ...stock,
+        signal: MOCK_SIGNALS[stock.id] || { signal: 'HOLD', reason: '分析中' }
+      }));
+      setStocks(mergedMock);
       setUseMock(true);
     } finally {
       setLoading(false);
@@ -82,16 +116,16 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>📈 Crypto Trend - 加密货币趋势分析</title>
+        <title>📈 A股/港股趋势分析</title>
       </Head>
       <div style={{ minHeight: '100vh', background: '#0d1117', color: '#c9d1d9', padding: '1rem' }}>
         <header style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 0', borderBottom: '1px solid #30363d' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h1 style={{ fontSize: '1.5rem', margin: 0 }}>
-              📈 Crypto Trend
+              📈 A股/港股趋势
             </h1>
             <div style={{ fontSize: '0.875rem', color: '#8b949e' }}>
-              {useMock ? '🔴 模拟数据' : '🟢 实时数据'}
+              {useMock ? '🔴 模拟数据' : '🟢 实时数据 (新浪财经)'}
               <button 
                 onClick={fetchPrices}
                 style={{ 
@@ -112,9 +146,9 @@ export default function Home() {
 
         <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 0' }}>
           <div style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>🚀 今日买卖信号</h2>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>🚀 今日股票行情</h2>
             <p style={{ color: '#8b949e', fontSize: '0.875rem' }}>
-              基于 MA 和 RSI 指标分析
+              A股 + 港股实时行情
             </p>
           </div>
 
@@ -122,12 +156,12 @@ export default function Home() {
             <p style={{ textAlign: 'center', padding: '2rem' }}>加载中...</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-              {coins.map(coin => {
-                const signal = MOCK_SIGNALS[coin.id] || { signal: 'HOLD', rsi: 50 };
+              {stocks.map(stock => {
+                const signal = stock.signal || { signal: 'HOLD', reason: '分析中' };
                 return (
                   <div 
-                    key={coin.id}
-                    onClick={() => setSelectedCoin(selectedCoin?.id === coin.id ? null : coin)}
+                    key={stock.id}
+                    onClick={() => setSelectedStock(selectedStock?.id === stock.id ? null : stock)}
                     style={{
                       background: '#161b22',
                       border: '1px solid #30363d',
@@ -138,10 +172,20 @@ export default function Home() {
                       borderColor: signal.signal.includes('BUY') ? '#52c41a' : signal.signal === 'SELL' ? '#ff4d4f' : '#30363d'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                       <div>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>{coin.symbol}</span>
-                        <span style={{ color: '#8b949e', marginLeft: '0.5rem', fontSize: '0.875rem' }}>{coin.name}</span>
+                        <span style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>{stock.symbol}</span>
+                        <span style={{ color: '#8b949e', marginLeft: '0.5rem', fontSize: '0.875rem' }}>{stock.name}</span>
+                        <span style={{ 
+                          marginLeft: '0.5rem', 
+                          padding: '0.125rem 0.375rem',
+                          borderRadius: '4px',
+                          fontSize: '0.625rem',
+                          background: stock.market === 'A股' ? '#cf1322' : '#0969da',
+                          color: 'white'
+                        }}>
+                          {stock.market}
+                        </span>
                       </div>
                       <div 
                         style={{
@@ -158,30 +202,34 @@ export default function Home() {
                     </div>
                     
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                      ${formatPrice(coin.price)}
+                      ¥{formatPrice(stock.price)}
                     </div>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#8b949e' }}>
-                      <span>24h:</span>
-                      <span style={{ color: coin.change24h >= 0 ? '#3fb950' : '#f85149' }}>
-                        {coin.change24h >= 0 ? '↑' : '↓'} {Math.abs(coin.change24h).toFixed(2)}%
+                      <span>涨跌:</span>
+                      <span style={{ color: stock.change24h >= 0 ? '#3fb950' : '#f85149' }}>
+                        {stock.change24h >= 0 ? '↑' : '↓'} {Math.abs(stock.change24h).toFixed(2)}%
                       </span>
                     </div>
 
-                    {selectedCoin?.id === coin.id && (
+                    {selectedStock?.id === stock.id && (
                       <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #30363d' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
                           <div>
-                            <span style={{ color: '#8b949e' }}>RSI(14):</span>
-                            <span style={{ marginLeft: '0.5rem' }}>{signal.rsi}</span>
+                            <span style={{ color: '#8b949e' }}>信号:</span>
+                            <span style={{ marginLeft: '0.5rem' }}>{signal.reason || '分析中'}</span>
                           </div>
                           <div>
-                            <span style={{ color: '#8b949e' }}>MA7:</span>
-                            <span style={{ marginLeft: '0.5rem' }}>${formatPrice(signal.ma7)}</span>
+                            <span style={{ color: '#8b949e' }}>开盘:</span>
+                            <span style={{ marginLeft: '0.5rem' }}>¥{formatPrice(stock.open)}</span>
                           </div>
                           <div>
-                            <span style={{ color: '#8b949e' }}>MA25:</span>
-                            <span style={{ marginLeft: '0.5rem' }}>${formatPrice(signal.ma25)}</span>
+                            <span style={{ color: '#8b949e' }}>最高:</span>
+                            <span style={{ marginLeft: '0.5rem' }}>¥{formatPrice(stock.high)}</span>
+                          </div>
+                          <div>
+                            <span style={{ color: '#8b949e' }}>最低:</span>
+                            <span style={{ marginLeft: '0.5rem' }}>¥{formatPrice(stock.low)}</span>
                           </div>
                         </div>
                       </div>
@@ -194,17 +242,18 @@ export default function Home() {
 
           <div style={{ marginTop: '2rem', padding: '1rem', background: '#161b22', borderRadius: '8px', border: '1px solid #30363d' }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>📊 信号说明</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
-              <div><span style={{ color: '#52c41a' }}>●</span> 强烈买入 - RSI &lt; 30, MA7 &lt; MA25</div>
-              <div><span style={{ color: '#73d13d' }}>●</span> 买入 - RSI &lt; 40</div>
-              <div><span style={{ color: '#faad14' }}>●</span> 持有 - RSI 40-60</div>
-              <div><span style={{ color: '#ff4d4f' }}>●</span> 卖出 - RSI &gt; 70</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
+              <div><span style={{ color: '#52c41a' }}>●</span> 强烈买入 - 涨幅 &gt; 3%</div>
+              <div><span style={{ color: '#73d13d' }}>●</span> 买入 - 涨幅 1-3%</div>
+              <div><span style={{ color: '#faad14' }}>●</span> 持有 - 波动 ±1%</div>
+              <div><span style={{ color: '#ff4d4f' }}>●</span> 卖出 - 跌幅 1-3%</div>
+              <div><span style={{ color: '#cf1322' }}>●</span> 强烈卖出 - 跌幅 &gt; 3%</div>
             </div>
           </div>
         </main>
 
         <footer style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 0', borderTop: '1px solid #30363d', textAlign: 'center', color: '#8b949e', fontSize: '0.875rem' }}>
-          <p>数据来源: CoinGecko API | 每30秒自动刷新</p>
+          <p>数据来源: 新浪财经 | 每30秒自动刷新</p>
           <p>⚠️ 投资有风险，入市需谨慎。本网站仅供学习参考，不构成投资建议。</p>
         </footer>
       </div>

@@ -1,15 +1,9 @@
 import { Router } from 'express';
-import { getPrices, getOHLC, SUPPORTED_COINS } from '../services/coingecko.js';
-import { 
-  calculateMA, 
-  calculateRSI, 
-  extractClosePrices,
-  generateSignal 
-} from '../services/indicators.js';
+import { getPrices, getStockById, SUPPORTED_STOCKS } from '../services/stock.js';
 
 const router = Router();
 
-// GET /api/crypto/prices - 获取所有币种实时价格
+// GET /api/crypto/prices - 获取所有股票实时价格
 router.get('/prices', async (req, res) => {
   try {
     const prices = await getPrices();
@@ -20,59 +14,71 @@ router.get('/prices', async (req, res) => {
   }
 });
 
-// GET /api/crypto/coins - 获取支持的币种列表
+// GET /api/crypto/coins - 获取支持的股票列表
 router.get('/coins', (req, res) => {
-  res.json(SUPPORTED_COINS);
+  res.json(SUPPORTED_STOCKS);
 });
 
-// GET /api/crypto/ohlc/:coinId - 获取K线数据
+// GET /api/crypto/ohlc/:coinId - 获取K线数据 (简化版，暂不提供)
 router.get('/ohlc/:coinId', async (req, res) => {
   try {
     const { coinId } = req.params;
-    const days = parseInt(req.query.days) || 30;
+    const stock = await getStockById(coinId);
     
-    const ohlc = await getOHLC(coinId, days);
-    res.json(ohlc);
+    if (!stock) {
+      return res.status(404).json({ error: 'Stock not found' });
+    }
+    
+    // 返回简化数据
+    res.json({
+      timestamp: Date.now(),
+      open: stock.open,
+      high: stock.high,
+      low: stock.low,
+      close: stock.price
+    });
   } catch (error) {
     console.error('Error fetching OHLC:', error.message);
     res.status(500).json({ error: 'Failed to fetch OHLC data' });
   }
 });
 
-// GET /api/crypto/indicators/:coinId - 获取技术指标
+// GET /api/crypto/indicators/:coinId - 获取技术指标 (简化版)
 router.get('/indicators/:coinId', async (req, res) => {
   try {
     const { coinId } = req.params;
-    const days = parseInt(req.query.days) || 100;
+    const stock = await getStockById(coinId);
     
-    // 获取K线数据
-    const ohlc = await getOHLC(coinId, days);
-    const closePrices = extractClosePrices(ohlc);
+    if (!stock) {
+      return res.status(404).json({ error: 'Stock not found' });
+    }
     
-    // 计算指标
-    const ma7 = calculateMA(closePrices, 7);
-    const ma25 = calculateMA(closePrices, 25);
-    const ma99 = calculateMA(closePrices, 99);
-    const rsi14 = calculateRSI(closePrices, 14);
+    // 简化版技术指标 (基于涨跌幅生成信号)
+    let signal = 'HOLD';
+    let rsi = 50;
     
-    // 生成信号
-    const signal = generateSignal({ ma7, ma25, ma99, rsi14 }, closePrices);
+    if (stock.change24h > 3) {
+      signal = 'STRONG_BUY';
+      rsi = 75;
+    } else if (stock.change24h > 1) {
+      signal = 'BUY';
+      rsi = 65;
+    } else if (stock.change24h < -3) {
+      signal = 'STRONG_SELL';
+      rsi = 25;
+    } else if (stock.change24h < -1) {
+      signal = 'SELL';
+      rsi = 35;
+    } else if (stock.change24h >= -1 && stock.change24h <= 1) {
+      rsi = 50;
+    }
     
     res.json({
       coinId,
       signal,
       indicators: {
-        ma7: ma7[ma7.length - 1],
-        ma25: ma25[ma25.length - 1],
-        ma99: ma99[ma99.length - 1],
-        rsi14: rsi14[rsi14.length - 1]
-      },
-      history: {
-        ma7,
-        ma25,
-        ma99,
-        rsi14,
-        prices: closePrices
+        rsi14: rsi,
+        change: stock.change24h
       }
     });
   } catch (error) {

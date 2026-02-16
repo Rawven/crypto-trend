@@ -1,48 +1,47 @@
 import { Router } from 'express';
-import { getPrices, getOHLC, SUPPORTED_COINS } from '../services/coingecko.js';
-import { 
-  calculateMA, 
-  calculateRSI, 
-  extractClosePrices,
-  generateSignal 
-} from '../services/indicators.js';
+import { getPrices, getStockById, SUPPORTED_STOCKS } from '../services/stock.js';
 
 const router = Router();
 
-// GET /api/signals - 获取所有币种的买卖信号
+// 基于涨跌幅生成买卖信号
+function generateSignal(stock) {
+  const { change24h } = stock;
+  
+  if (change24h > 3) {
+    return { signal: 'STRONG_BUY', reason: '涨幅超过3%，强劲上涨' };
+  } else if (change24h > 1) {
+    return { signal: 'BUY', reason: '涨幅超过1%，温和上涨' };
+  } else if (change24h < -3) {
+    return { signal: 'STRONG_SELL', reason: '跌幅超过3%，强劲下跌' };
+  } else if (change24h < -1) {
+    return { signal: 'SELL', reason: '跌幅超过1%，温和下跌' };
+  } else {
+    return { signal: 'HOLD', reason: '波动较小，持有观望' };
+  }
+}
+
+// GET /api/signals - 获取所有股票的买卖信号
 router.get('/', async (req, res) => {
   try {
-    const results = [];
+    const prices = await getPrices();
+    const results = prices.map(stock => {
+      const signal = generateSignal(stock);
+      return {
+        stock: {
+          id: stock.id,
+          symbol: stock.symbol,
+          name: stock.name,
+          market: stock.market
+        },
+        signal,
+        price: stock.price,
+        change24h: stock.change24h,
+        timestamp: new Date().toISOString()
+      };
+    });
     
-    for (const coin of SUPPORTED_COINS) {
-      try {
-        const ohlc = await getOHLC(coin.id, 100);
-        const closePrices = extractClosePrices(ohlc);
-        
-        const ma7 = calculateMA(closePrices, 7);
-        const ma25 = calculateMA(closePrices, 25);
-        const ma99 = calculateMA(closePrices, 99);
-        const rsi14 = calculateRSI(closePrices, 14);
-        
-        const signal = generateSignal({ ma7, ma25, ma99, rsi14 }, closePrices);
-        
-        results.push({
-          coin: {
-            id: coin.id,
-            symbol: coin.symbol,
-            name: coin.name
-          },
-          signal,
-          timestamp: new Date().toISOString()
-        });
-      } catch (err) {
-        console.error(`Error processing ${coin.id}:`, err.message);
-      }
-    }
-    
-    // 按信号排序：BUY > HOLD > SELL
-    const signalOrder = { 'BUY': 0, 'HOLD': 1, 'SELL': 2 };
-    results.sort((a, b) => signalOrder[a.signal.signal] - signalOrder[b.signal.signal]);
+    // 按涨跌幅排序
+    results.sort((a, b) => b.change24h - a.change24h);
     
     res.json(results);
   } catch (error) {
@@ -51,33 +50,28 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/signals/:coinId - 获取单个币种的信号
+// GET /api/signals/:coinId - 获取单个股票的信号
 router.get('/:coinId', async (req, res) => {
   try {
     const { coinId } = req.params;
     
-    const coin = SUPPORTED_COINS.find(c => c.id === coinId);
-    if (!coin) {
-      return res.status(404).json({ error: 'Coin not found' });
+    const stock = await getStockById(coinId);
+    if (!stock) {
+      return res.status(404).json({ error: 'Stock not found' });
     }
     
-    const ohlc = await getOHLC(coinId, 100);
-    const closePrices = extractClosePrices(ohlc);
-    
-    const ma7 = calculateMA(closePrices, 7);
-    const ma25 = calculateMA(closePrices, 25);
-    const ma99 = calculateMA(closePrices, 99);
-    const rsi14 = calculateRSI(closePrices, 14);
-    
-    const signal = generateSignal({ ma7, ma25, ma99, rsi14 }, closePrices);
+    const signal = generateSignal(stock);
     
     res.json({
-      coin: {
-        id: coin.id,
-        symbol: coin.symbol,
-        name: coin.name
+      stock: {
+        id: stock.id,
+        symbol: stock.symbol,
+        name: stock.name,
+        market: stock.market
       },
       signal,
+      price: stock.price,
+      change24h: stock.change24h,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
