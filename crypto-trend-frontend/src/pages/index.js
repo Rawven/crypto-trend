@@ -67,6 +67,20 @@ export default function Home() {
   const [portfolioQty, setPortfolioQty] = useState('');
   const [portfolioCost, setPortfolioCost] = useState('');
 
+  // Compare state
+  const [compareStocks, setCompareStocks] = useState([]);
+
+  const toggleCompare = (stock, e) => {
+    e.stopPropagation();
+    setCompareStocks(prev => {
+      if (prev.find(s => s.id === stock.id)) {
+        return prev.filter(s => s.id !== stock.id);
+      }
+      if (prev.length >= 3) return prev;
+      return [...prev, stock];
+    });
+  };
+
   // Save portfolio to localStorage
   useEffect(() => {
     localStorage.setItem('stockPortfolio', JSON.stringify(portfolio));
@@ -683,6 +697,70 @@ export default function Home() {
             </div>
           )}
 
+          {/* Compare Panel */}
+          {compareStocks.length > 0 && (
+            <div style={{ 
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2))',
+              borderRadius: '12px', 
+              padding: '1rem', 
+              marginBottom: '1.5rem',
+              border: '1px solid rgba(59, 130, 246, 0.3)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#60a5fa' }}>📊 股票对比 ({compareStocks.length}/3)</span>
+                <button
+                  onClick={() => setCompareStocks([])}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  清除
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${compareStocks.length}, 1fr)`, gap: '1rem' }}>
+                {compareStocks.map(stock => (
+                  <div key={stock.id} style={{
+                    background: 'rgba(30, 41, 59, 0.6)',
+                    borderRadius: '8px',
+                    padding: '0.75rem',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '0.25rem' }}>{stock.symbol}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem' }}>{stock.name}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
+                      {stock.market === '港股' ? 'HK$' : '¥'}{stock.price?.toFixed(2)}
+                    </div>
+                    <div style={{ 
+                      fontSize: '0.85rem', 
+                      color: stock.change24h >= 0 ? '#4ade80' : '#f87171',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {stock.change24h >= 0 ? '+' : ''}{stock.change24h?.toFixed(2)}%
+                    </div>
+                    <button
+                      onClick={(e) => toggleCompare(stock, e)}
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: '#f87171',
+                        fontSize: '0.7rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      移除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Search & Filter */}
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
@@ -865,6 +943,23 @@ export default function Home() {
                         title={portfolio.find(p => p.id === stock.id) ? `持仓: ${portfolio.find(p => p.id === stock.id).qty}股` : '添加持仓'}
                       >
                         {portfolio.find(p => p.id === stock.id) ? '💰' : '💵'}
+                      </button>
+                      <button
+                        onClick={(e) => toggleCompare(stock, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '1rem',
+                          left: '5rem',
+                          background: compareStocks.find(s => s.id === stock.id) ? 'rgba(59, 130, 246, 0.3)' : 'none',
+                          border: 'none',
+                          fontSize: '1rem',
+                          cursor: 'pointer',
+                          padding: '0.25rem',
+                          borderRadius: '4px'
+                        }}
+                        title={compareStocks.find(s => s.id === stock.id) ? '取消对比' : '对比股票'}
+                      >
+                        {compareStocks.find(s => s.id === stock.id) ? '📊' : '📈'}
                       </button>
                       <div style={{
                         position: 'absolute',
