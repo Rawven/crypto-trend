@@ -28,8 +28,34 @@ export default function Home() {
   const [klineData, setKlineData] = useState(null);
   const [klineLoading, setKlineLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [favorites, setFavorites] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('stockFavorites');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
+
+  // Save favorites to localStorage
+  useEffect(() => {
+    localStorage.setItem('stockFavorites', JSON.stringify(favorites));
+  }, [favorites]);
+
+  const toggleFavorite = (stockId, e) => {
+    e.stopPropagation();
+    setFavorites(prev => 
+      prev.includes(stockId) 
+        ? prev.filter(id => id !== stockId)
+        : [...prev, stockId]
+    );
+  };
+
+  const favoriteStocks = useMemo(() => 
+    stocks.filter(s => favorites.includes(s.id)),
+    [stocks, favorites]
+  );
 
   const fetchPrices = async () => {
     try {
@@ -448,12 +474,99 @@ export default function Home() {
             </div>
           )}
 
+          {!loading && favoriteStocks.length > 0 && activeTab === 'all' && signalFilter === 'all' && !search && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1rem', color: '#fbbf24', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                ⭐ 我的自选 ({favoriteStocks.length})
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                {favoriteStocks.map(stock => {
+                  const signal = stock.signal || { signal: 'HOLD', reason: '分析中' };
+                  const colors = getSignalColor(signal.signal);
+                  const isUp = stock.change24h >= 0;
+                  const isFav = favorites.includes(stock.id);
+                  
+                  return (
+                    <div 
+                      key={stock.id}
+                      onClick={() => setSelectedStock(selectedStock?.id === stock.id ? null : stock)}
+                      style={{
+                        background: 'rgba(30, 41, 59, 0.6)',
+                        border: selectedStock?.id === stock.id ? `2px solid ${colors.border}` : `1px solid #fbbf2440`,
+                        borderRadius: '16px',
+                        padding: '1.25rem',
+                        cursor: 'pointer',
+                        position: 'relative'
+                      }}
+                    >
+                      <button
+                        onClick={(e) => toggleFavorite(stock.id, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '1rem',
+                          left: '1rem',
+                          background: 'none',
+                          border: 'none',
+                          fontSize: '1.25rem',
+                          cursor: 'pointer',
+                          padding: '0.25rem'
+                        }}
+                      >
+                        {isFav ? '⭐' : '☆'}
+                      </button>
+                      <div style={{
+                        position: 'absolute',
+                        top: '1rem',
+                        right: '1rem',
+                        padding: '0.2rem 0.625rem',
+                        background: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '9999px',
+                        fontSize: '0.7rem',
+                        fontWeight: '700',
+                        color: colors.text
+                      }}>
+                        {signal.signal}
+                      </div>
+
+                      <div style={{ marginBottom: '0.75rem', paddingRight: '4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.125rem' }}>
+                          <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>{stock.symbol}</span>
+                          <span style={{ padding: '0.1rem 0.375rem', borderRadius: '4px', fontSize: '0.6rem', fontWeight: '600', background: stock.market === 'A股' ? 'rgba(220, 38, 38, 0.2)' : 'rgba(37, 99, 235, 0.2)', color: stock.market === 'A股' ? '#fca5a5' : '#93c5fd' }}>
+                            {stock.market}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>{stock.name}</p>
+                      </div>
+
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '1.5rem', fontWeight: '700' }}>
+                          {stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.price)}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem', background: isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '1rem' }}>{isUp ? '📈' : '📉'}</span>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isUp ? '#4ade80' : '#f87171' }}>
+                          {isUp ? '+' : ''}{stock.change24h?.toFixed(2) || '0.00'}%
+                        </span>
+                      </div>
+
+                      <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>💡 {signal.reason || '分析中...'}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {!loading && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
               {filteredStocks.map(stock => {
                 const signal = stock.signal || { signal: 'HOLD', reason: '分析中' };
                 const colors = getSignalColor(signal.signal);
                 const isUp = stock.change24h >= 0;
+                const isFav = favorites.includes(stock.id);
                 
                 return (
                   <div 
@@ -468,6 +581,21 @@ export default function Home() {
                       position: 'relative'
                     }}
                   >
+                    <button
+                      onClick={(e) => toggleFavorite(stock.id, e)}
+                      style={{
+                        position: 'absolute',
+                        top: '1rem',
+                        left: '1rem',
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '1.25rem',
+                        cursor: 'pointer',
+                        padding: '0.25rem'
+                      }}
+                    >
+                      {isFav ? '⭐' : '☆'}
+                    </button>
                     <div style={{
                       position: 'absolute',
                       top: '1rem',
