@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Head from 'next/head';
+import { createChart } from 'lightweight-charts';
 
 const API_BASE = 'http://localhost:3002/api';
 
@@ -24,7 +25,11 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('default');
   const [signalFilter, setSignalFilter] = useState('all');
   const [selectedStock, setSelectedStock] = useState(null);
+  const [klineData, setKlineData] = useState(null);
+  const [klineLoading, setKlineLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const chartContainerRef = useRef(null);
+  const chartRef = useRef(null);
 
   const fetchPrices = async () => {
     try {
@@ -67,6 +72,96 @@ export default function Home() {
     const interval = setInterval(fetchPrices, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch K-line when stock is selected
+  useEffect(() => {
+    if (!selectedStock) {
+      setKlineData(null);
+      return;
+    }
+    
+    const fetchKline = async () => {
+      setKlineLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/crypto/ohlc/${selectedStock.id}?days=30`);
+        const data = await res.json();
+        setKlineData(data);
+      } catch (e) {
+        console.error('K-line fetch error:', e);
+        setKlineData(null);
+      } finally {
+        setKlineLoading(false);
+      }
+    };
+    
+    fetchKline();
+  }, [selectedStock]);
+
+  // Render chart when K-line data changes
+  useEffect(() => {
+    if (!klineData?.klines?.length || !chartContainerRef.current) return;
+    
+    // Clean up previous chart
+    if (chartRef.current) {
+      chartRef.current.remove();
+    }
+    
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 300,
+      layout: {
+        background: { color: '#1e293b' },
+        textColor: '#94a3b8'
+      },
+      grid: {
+        vertLines: { color: '#334155' },
+        horzLines: { color: '#334155' }
+      },
+      crosshair: {
+        mode: 1
+      },
+      rightPriceScale: {
+        borderColor: '#334155'
+      },
+      timeScale: {
+        borderColor: '#334155',
+        timeVisible: true
+      }
+    });
+    
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: '#22c55e',
+      downColor: '#ef4444',
+      borderUpColor: '#22c55e',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#22c55e',
+      wickDownColor: '#ef4444'
+    });
+    
+    const data = klineData.klines.map(k => ({
+      time: k.date,
+      open: k.open,
+      high: k.high,
+      low: k.low,
+      close: k.close
+    }));
+    
+    candlestickSeries.setData(data);
+    chart.timeScale().fitContent();
+    chartRef.current = chart;
+    
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, [klineData]);
 
   const filteredStocks = useMemo(() => {
     let result = [...stocks];
@@ -414,24 +509,45 @@ export default function Home() {
                     <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>💡 {signal.reason || '分析中...'}</p>
 
                     {selectedStock?.id === stock.id && (
-                      <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                        <div>
-                          <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>开盘</p>
-                          <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0 }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.open)}</p>
+                      <>
+                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <div>
+                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>开盘</p>
+                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0 }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.open)}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>最高</p>
+                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0, color: '#4ade80' }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.high)}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>最低</p>
+                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0, color: '#f87171' }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.low)}</p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>成交量</p>
+                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0 }}>{(stock.volume / 10000).toFixed(1)}万</p>
+                          </div>
                         </div>
-                        <div>
-                          <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>最高</p>
-                          <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0, color: '#4ade80' }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.high)}</p>
-                        </div>
-                        <div>
-                          <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>最低</p>
-                          <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0, color: '#f87171' }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.low)}</p>
-                        </div>
-                        <div>
-                          <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>成交量</p>
-                          <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0 }}>{(stock.volume / 10000).toFixed(1)}万</p>
-                        </div>
-                      </div>
+                        
+                        {/* K-Line Chart */}
+                        {stock.market === 'A股' && (
+                          <div style={{ marginTop: '1rem' }}>
+                            {klineLoading ? (
+                              <div style={{ textAlign: 'center', padding: '1rem' }}>
+                                <span style={{ fontSize: '1rem' }}>⏳</span>
+                                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0.5rem 0 0 0' }}>加载K线数据...</p>
+                              </div>
+                            ) : klineData?.klines?.length > 0 ? (
+                              <>
+                                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0 0 0.5rem 0' }}>📊 30日K线</p>
+                                <div ref={chartContainerRef} style={{ borderRadius: '8px', overflow: 'hidden' }} />
+                              </>
+                            ) : (
+                              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0.5rem 0' }}>暂无可用K线数据</p>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );

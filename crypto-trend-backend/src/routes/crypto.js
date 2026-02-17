@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import axios from 'axios';
+import iconv from 'iconv-lite';
 import { getPrices, getStockById, SUPPORTED_STOCKS } from '../services/stock.js';
 
 const router = Router();
@@ -19,23 +21,51 @@ router.get('/coins', (req, res) => {
   res.json(SUPPORTED_STOCKS);
 });
 
-// GET /api/crypto/ohlc/:coinId - 获取K线数据 (简化版，暂不提供)
+// GET /api/crypto/ohlc/:coinId - 获取K线数据
 router.get('/ohlc/:coinId', async (req, res) => {
   try {
     const { coinId } = req.params;
-    const stock = await getStockById(coinId);
+    const { days = 60, adjust = 'qfq' } = req.query;
     
+    const stock = SUPPORTED_STOCKS.find(s => s.id === coinId);
     if (!stock) {
       return res.status(404).json({ error: 'Stock not found' });
     }
     
-    // 返回简化数据
+    // 腾讯K线API
+    const url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${stock.code},day,,,${days},${adjust}`;
+    const response = await axios.get(url, { 
+      responseType: 'arraybuffer', 
+      timeout: 10000 
+    });
+    
+    const html = iconv.decode(response.data, 'GBK');
+    const data = JSON.parse(html);
+    
+    const stockData = data.data[stock.code];
+    if (!stockData || !stockData.qfqday) {
+      return res.json({ 
+        coinId, 
+        symbol: stock.symbol, 
+        name: stock.name,
+        klines: [] 
+      });
+    }
+    
+    const klines = stockData.qfqday.map(k => ({
+      date: k[0],
+      open: parseFloat(k[1]),
+      close: parseFloat(k[2]),
+      high: parseFloat(k[3]),
+      low: parseFloat(k[4]),
+      volume: parseFloat(k[5])
+    }));
+    
     res.json({
-      timestamp: Date.now(),
-      open: stock.open,
-      high: stock.high,
-      low: stock.low,
-      close: stock.price
+      coinId,
+      symbol: stock.symbol,
+      name: stock.name,
+      klines
     });
   } catch (error) {
     console.error('Error fetching OHLC:', error.message);
