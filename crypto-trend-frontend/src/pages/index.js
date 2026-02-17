@@ -55,6 +55,78 @@ export default function Home() {
     localStorage.setItem('stockFavorites', JSON.stringify(favorites));
   }, [favorites]);
 
+  // Portfolio state
+  const [portfolio, setPortfolio] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('stockPortfolio');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [showPortfolioModal, setShowPortfolioModal] = useState(null);
+  const [portfolioQty, setPortfolioQty] = useState('');
+  const [portfolioCost, setPortfolioCost] = useState('');
+
+  // Save portfolio to localStorage
+  useEffect(() => {
+    localStorage.setItem('stockPortfolio', JSON.stringify(portfolio));
+  }, [portfolio]);
+
+  const addToPortfolio = (stock, e) => {
+    e.stopPropagation();
+    setShowPortfolioModal(stock);
+    const existing = portfolio.find(p => p.id === stock.id);
+    if (existing) {
+      setPortfolioQty(existing.qty.toString());
+      setPortfolioCost(existing.cost.toString());
+    } else {
+      setPortfolioQty('');
+      setPortfolioCost(stock.price?.toFixed(2) || '');
+    }
+  };
+
+  const savePortfolio = () => {
+    const qty = parseFloat(portfolioQty);
+    const cost = parseFloat(portfolioCost);
+    if (isNaN(qty) || qty <= 0 || isNaN(cost) || cost <= 0) return;
+    
+    setPortfolio(prev => {
+      const existing = prev.find(p => p.id === showPortfolioModal.id);
+      if (existing) {
+        return prev.map(p => p.id === showPortfolioModal.id ? { ...p, qty, cost } : p);
+      }
+      return [...prev, { id: showPortfolioModal.id, symbol: showPortfolioModal.symbol, name: showPortfolioModal.name, market: showPortfolioModal.market, qty, cost }];
+    });
+    setShowPortfolioModal(null);
+  };
+
+  const removeFromPortfolio = (stockId, e) => {
+    e.stopPropagation();
+    setPortfolio(prev => prev.filter(p => p.id !== stockId));
+  };
+
+  const portfolioStats = useMemo(() => {
+    if (!portfolio.length || !stocks.length) return { totalValue: 0, totalCost: 0, pnl: 0, pnlPercent: 0 };
+    
+    let totalValue = 0;
+    let totalCost = 0;
+    
+    portfolio.forEach(p => {
+      const stock = stocks.find(s => s.id === p.id);
+      if (stock) {
+        totalValue += stock.price * p.qty;
+        totalCost += p.cost * p.qty;
+      }
+    });
+    
+    return {
+      totalValue,
+      totalCost,
+      pnl: totalValue - totalCost,
+      pnlPercent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
+    };
+  }, [portfolio, stocks]);
+
   // Save alerts to localStorage
   useEffect(() => {
     localStorage.setItem('stockAlerts', JSON.stringify(alerts));
@@ -550,6 +622,67 @@ export default function Home() {
             </div>
           )}
 
+          {/* Portfolio Summary */}
+          {portfolio.length > 0 && (
+            <div style={{ 
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
+              borderRadius: '12px', 
+              padding: '1rem', 
+              marginBottom: '1.5rem',
+              border: '1px solid rgba(139, 92, 246, 0.3)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#a78bfa' }}>💰 我的持仓 ({portfolio.length}只)</span>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                  持仓: ¥{portfolioStats.totalCost.toLocaleString()} | 
+                  当前: ¥{portfolioStats.totalValue.toLocaleString()} | 
+                  <span style={{ color: portfolioStats.pnl >= 0 ? '#4ade80' : '#f87171', fontWeight: '600' }}>
+                    {portfolioStats.pnl >= 0 ? '↑' : '↓'}¥{Math.abs(portfolioStats.pnl).toLocaleString()} ({portfolioStats.pnlPercent.toFixed(2)}%)
+                  </span>
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {portfolio.map(p => {
+                  const stock = stocks.find(s => s.id === p.id);
+                  const currentValue = stock ? stock.price * p.qty : 0;
+                  const costValue = p.cost * p.qty;
+                  const pnl = currentValue - costValue;
+                  const pnlPercent = (pnl / costValue) * 100;
+                  
+                  return (
+                    <div key={p.id} style={{
+                      padding: '0.375rem 0.625rem',
+                      background: 'rgba(30, 41, 59, 0.6)',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{p.symbol}</span>
+                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{p.qty}股</span>
+                      <span style={{ fontSize: '0.7rem', color: pnl >= 0 ? '#4ade80' : '#f87171' }}>
+                        {pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(1)}%
+                      </span>
+                      <button
+                        onClick={(e) => removeFromPortfolio(p.id, e)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#64748b',
+                          cursor: 'pointer',
+                          fontSize: '0.7rem',
+                          padding: '0'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Search & Filter */}
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
@@ -715,6 +848,23 @@ export default function Home() {
                         title={alerts[stock.id] ? `提醒: ${alerts[stock.type === 'above' ? '高于' : '低于'} ¥${alerts[stock.id].price}` : '设置价格提醒'}
                       >
                         {alerts[stock.id] ? '🔔' : '🔕'}
+                      </button>
+                      <button
+                        onClick={(e) => addToPortfolio(stock, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '1rem',
+                          left: '3.75rem',
+                          background: portfolio.find(p => p.id === stock.id) ? 'rgba(139, 92, 246, 0.3)' : 'none',
+                          border: 'none',
+                          fontSize: '1rem',
+                          cursor: 'pointer',
+                          padding: '0.25rem',
+                          borderRadius: '4px'
+                        }}
+                        title={portfolio.find(p => p.id === stock.id) ? `持仓: ${portfolio.find(p => p.id === stock.id).qty}股` : '添加持仓'}
+                      >
+                        {portfolio.find(p => p.id === stock.id) ? '💰' : '💵'}
                       </button>
                       <div style={{
                         position: 'absolute',
@@ -1018,6 +1168,110 @@ export default function Home() {
               )}
               <button
                 onClick={() => setShowAlertModal(null)}
+                style={{
+                  padding: '0.75rem',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  color: '#94a3b8',
+                  cursor: 'pointer'
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      )}
+
+      {/* Portfolio Modal */}
+      {showPortfolioModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }} onClick={() => setShowPortfolioModal(null)}>
+          <div style={{
+            background: '#1e293b',
+            borderRadius: '16px',
+            padding: '1.5rem',
+            width: '90%',
+            maxWidth: '400px',
+            border: '1px solid rgba(139, 92, 246, 0.3)'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              💰 添加持仓
+            </h3>
+            <p style={{ color: '#94a3b8', marginBottom: '1rem' }}>
+              {showPortfolioModal.symbol} - {showPortfolioModal.name}
+            </p>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                持仓数量
+              </label>
+              <input
+                type="number"
+                step="1"
+                value={portfolioQty}
+                onChange={(e) => setPortfolioQty(e.target.value)}
+                placeholder="输入股数"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: '#0f172a',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                成本价格
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={portfolioCost}
+                onChange={(e) => setPortfolioCost(e.target.value)}
+                placeholder="输入成本价"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: '#0f172a',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={savePortfolio}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                保存持仓
+              </button>
+              <button
+                onClick={() => setShowPortfolioModal(null)}
                 style={{
                   padding: '0.75rem',
                   background: 'transparent',
