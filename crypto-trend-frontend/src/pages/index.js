@@ -1,21 +1,109 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
-import { createChart } from 'lightweight-charts';
 
 const API_BASE = 'http://localhost:3030/api';
 
-const MOCK_DATA = [
-  { id: 'sh600519', symbol: '贵州茅台', name: 'Kweichow Moutai', market: 'A股', price: 1486.6, change24h: 0 },
-  { id: 'sh600036', symbol: '招商银行', name: 'China Merchants Bank', market: 'A股', price: 38.99, change24h: 0 },
-  { id: 'sz000858', symbol: '五粮液', name: 'Wuliangye Yibin', market: 'A股', price: 106.06, change24h: 1.38 },
-  { id: 'hk00700', symbol: '腾讯控股', name: 'Tencent', market: '港股', price: 533, change24h: 0.19 }
+// 96只A股/港股股票
+const STOCKS_CONFIG = [
+  // A股 - 蓝筹股
+  { id: 'sh600519', symbol: '贵州茅台', name: 'Kweichow Moutai', market: 'A股' },
+  { id: 'sh600036', symbol: '招商银行', name: 'China Merchants Bank', market: 'A股' },
+  { id: 'sh600030', symbol: '中信证券', name: 'CITIC Securities', market: 'A股' },
+  { id: 'sh601318', symbol: '中国平安', name: 'Ping An', market: 'A股' },
+  { id: 'sh601888', symbol: '中国中铁', name: 'China Railway', market: 'A股' },
+  { id: 'sh601398', symbol: '工商银行', name: 'ICBC', market: 'A股' },
+  { id: 'sh600028', symbol: '中国石化', name: 'Sinopec', market: 'A股' },
+  { id: 'sh600016', symbol: '民生银行', name: 'China Minsheng Bank', market: 'A股' },
+  { id: 'sh600000', symbol: '浦发银行', name: 'Shanghai Pudong Bank', market: 'A股' },
+  { id: 'sh601857', symbol: '中国石油', name: 'PetroChina', market: 'A股' },
+  // A股 - 科技
+  { id: 'sz002230', symbol: '科大讯飞', name: 'iFlytek', market: 'A股' },
+  { id: 'sz002415', symbol: '海康威视', name: 'Hikvision', market: 'A股' },
+  { id: 'sz300059', symbol: '东方财富', name: 'East Money', market: 'A股' },
+  { id: 'sh688041', symbol: '芯原股份', name: 'Chips & Media', market: 'A股' },
+  { id: 'sz002594', symbol: '比亚迪', name: 'BYD', market: 'A股' },
+  { id: 'sz002714', symbol: '牧原股份', name: 'Muyuan Food', market: 'A股' },
+  { id: 'sz300014', symbol: '亿纬锂能', name: 'EVE Energy', market: 'A股' },
+  { id: 'sz000858', symbol: '五粮液', name: 'Wuliangye', market: 'A股' },
+  { id: 'sz000596', symbol: '古井贡酒', name: 'Gujing Gong', market: 'A股' },
+  { id: 'sz000869', symbol: '张裕A', name: 'Changyu', market: 'A股' },
+  // A股 - 医药
+  { id: 'sh600276', symbol: '恒瑞医药', name: 'Hengrui', market: 'A股' },
+  { id: 'sz000538', symbol: '云南白药', name: 'Yunnan Baiyao', market: 'A股' },
+  { id: 'sz000423', symbol: '同仁堂', name: 'Tong Ren Tang', market: 'A股' },
+  { id: 'sz300015', symbol: '爱尔眼科', name: 'Aier Eye', market: 'A股' },
+  { id: 'sz300122', symbol: '智飞生物', name: 'Zhifei Bio', market: 'A股' },
+  { id: 'sz300142', symbol: '沃森生物', name: 'Wosin Bio', market: 'A股' },
+  { id: 'sz300347', symbol: '泰格医药', name: 'Tigermed', market: 'A股' },
+  { id: 'sz300750', symbol: '宁德时代', name: 'CATL', market: 'A股' },
+  // A股 - 金融
+  { id: 'sz000001', symbol: '平安银行', name: 'Ping An Bank', market: 'A股' },
+  { id: 'sh601988', symbol: '中国银行', name: 'Bank of China', market: 'A股' },
+  { id: 'sh600585', symbol: '海螺水泥', name: 'Conch Cement', market: 'A股' },
+  { id: 'sh600309', symbol: '万华化学', name: 'Wanhua', market: 'A股' },
+  { id: 'sh600547', symbol: '山东黄金', name: 'Shandong Gold', market: 'A股' },
+  { id: 'sh600900', symbol: '长江电力', name: 'China Power', market: 'A股' },
+  { id: 'sh601111', symbol: '中国铁建', name: 'China CRCC', market: 'A股' },
+  { id: 'sh600009', symbol: '上海机场', name: 'Shanghai Airport', market: 'A股' },
+  { id: 'sh600018', symbol: '上港集团', name: 'Shanghai Port', market: 'A股' },
+  { id: 'sh600031', symbol: '三一重工', name: 'Sany', market: 'A股' },
+  { id: 'sh600150', symbol: '中国船舶', name: 'China Shipbuilding', market: 'A股' },
+  { id: 'sh600050', symbol: '中国联通', name: 'China Unicom', market: 'A股' },
+  { id: 'sz000333', symbol: '美的集团', name: 'Midea Group', market: 'A股' },
+  { id: 'sh600690', symbol: '青岛海尔', name: 'Haier', market: 'A股' },
+  { id: 'sz000651', symbol: '格力电器', name: 'Gree', market: 'A股' },
+  { id: 'sz000002', symbol: '万科A', name: 'Vanke', market: 'A股' },
+  // 港股
+  { id: 'hk00700', symbol: '腾讯控股', name: 'Tencent', market: '港股' },
+  { id: 'hk09988', symbol: '阿里巴巴', name: 'Alibaba', market: '港股' },
+  { id: 'hk01810', symbol: '小米集团', name: 'Xiaomi', market: '港股' },
+  { id: 'hk09618', symbol: '京东集团', name: 'JD.com', market: '港股' },
+  { id: 'hk00939', symbol: '建设银行', name: 'CCB', market: '港股' },
+  { id: 'hk01398', symbol: '工商银行', name: 'ICBC', market: '港股' },
+  { id: 'hk03988', symbol: '中国银行', name: 'BOC', market: '港股' },
+  { id: 'hk00011', symbol: '恒生银行', name: 'Hang Seng Bank', market: '港股' },
+  { id: 'hk02318', symbol: '中国平安', name: 'Ping An', market: '港股' },
+  { id: 'hk02628', symbol: '中国人寿', name: 'China Life', market: '港股' },
+  { id: 'hk02328', symbol: '中国财险', name: 'China P&C', market: '港股' },
+  { id: 'hk00981', symbol: '中移动', name: 'China Mobile', market: '港股' },
+  { id: 'hk00175', symbol: '吉利汽车', name: 'Geely Auto', market: '港股' },
+  { id: 'hk00267', symbol: '中国铁建', name: 'China Railway', market: '港股' },
+  { id: 'hk00690', symbol: '中国中铁', name: 'China Rail', market: '港股' },
+  { id: 'hk00667', symbol: '中国中铁', name: 'China Rail', market: '港股' },
+  { id: 'hk00388', symbol: '港交所', name: 'HKEX', market: '港股' },
+  { id: 'hk06030', symbol: '中信证券', name: 'CITIC Securities', market: '港股' },
+  { id: 'hk06837', symbol: '海通证券', name: 'Haitong', market: '港股' },
+  { id: 'hk03690', symbol: '海尔智家', name: 'Haier Smart', market: '港股' },
+  { id: 'hk02331', symbol: '李宁', name: 'Li-Ning', market: '港股' },
+  { id: 'hk02020', symbol: '安踏体育', name: 'Anta Sports', market: '港股' },
+  { id: 'hk00386', symbol: '中国石化', name: 'Sinopec', market: '港股' },
+  { id: 'hk01171', symbol: '华能电力', name: 'Huaneng Power', market: '港股' },
+  { id: 'hk01928', symbol: '中国中车', name: 'CRRC', market: '港股' },
+  { id: 'hk00027', symbol: '银河证券', name: 'Galaxy Securities', market: '港股' },
+  { id: 'hk09961', symbol: '快手', name: 'Kuaishou', market: '港股' },
+  { id: 'hk01024', symbol: '快手', name: 'Kuaishou', market: '港股' },
+  { id: 'hk00017', symbol: '新鸿基', name: 'Sun Hung Kai', market: '港股' },
+  { id: 'hk00016', symbol: '新鸿基', name: 'SHK', market: '港股' },
+  { id: 'hk00012', symbol: '恒基地产', name: 'Henderson Land', market: '港股' },
+  // 更多A股
+  { id: 'sh601668', symbol: '中国中铁', name: 'China Railway', market: 'A股' },
+  { id: 'sh601166', symbol: '兴业银行', name: 'Industrial Bank', market: 'A股' },
+  { id: 'sh600104', symbol: '上汽集团', name: 'SAIC', market: 'A股' },
+  { id: 'sh600887', symbol: '伊利股份', name: 'Yili', market: 'A股' },
+  { id: 'sh601012', symbol: '隆基绿能', name: 'LONGi', market: 'A股' },
+  { id: 'sh688981', symbol: '中芯国际', name: 'SMIC', market: 'A股' },
+  { id: 'sh600089', symbol: '特变电工', name: 'TBEA', market: 'A股' },
+  { id: 'sh600570', symbol: '恒生电子', name: 'Hundsun', market: 'A股' },
+  { id: 'sh600588', symbol: '用友网络', name: 'Yonyou', market: 'A股' },
+  { id: 'sz000725', symbol: '京东方A', name: 'BOE', market: 'A股' },
+  { id: 'sz000100', symbol: 'TCL科技', name: 'TCL', market: 'A股' },
+  { id: 'sz002475', symbol: '立讯精密', name: 'Luxshare', market: 'A股' },
+  { id: 'sz002456', symbol: '欧菲光', name: 'Ofilm', market: 'A股' },
+  { id: 'sz300433', symbol: '蓝思科技', name: 'Lens Technology', market: 'A股' },
+  { id: 'sz300498', symbol: '中科曙光', name: 'Sugon', market: 'A股' },
+  { id: 'sz300212', symbol: '易瑞生物', name: 'Bioeasy', market: 'A股' },
+  { id: 'sz300033', symbol: '同花顺', name: 'iFinD', market: 'A股' },
 ];
-
-const MOCK_SIGNALS = {
-  'sh600519': { signal: 'HOLD', reason: '波动较小' },
-  'sz000858': { signal: 'BUY', reason: '涨幅超过1%' },
-  'hk00700': { signal: 'HOLD', reason: '波动较小' }
-};
 
 export default function Home() {
   const [stocks, setStocks] = useState([]);
@@ -24,19 +112,10 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('all');
   const [sortBy, setSortBy] = useState('default');
   const [signalFilter, setSignalFilter] = useState('all');
-  const [selectedStock, setSelectedStock] = useState(null);
-  const [klineData, setKlineData] = useState(null);
-  const [klineLoading, setKlineLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('darkMode');
-      return saved !== null ? JSON.parse(saved) : true;
-    }
-    return true;
-  });
-  const [sectors, setSectors] = useState([]);
-  const [selectedSector, setSelectedSector] = useState(null);
+  const [darkMode, setDarkMode] = useState(true);
+  
+  // 自选股
   const [favorites, setFavorites] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('stockFavorites');
@@ -44,6 +123,8 @@ export default function Home() {
     }
     return [];
   });
+  
+  // 价格提醒
   const [alerts, setAlerts] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('stockAlerts');
@@ -54,20 +135,8 @@ export default function Home() {
   const [showAlertModal, setShowAlertModal] = useState(null);
   const [alertPrice, setAlertPrice] = useState('');
   const [alertType, setAlertType] = useState('above');
-  const chartContainerRef = useRef(null);
-  const chartRef = useRef(null);
-
-  // Save favorites to localStorage
-  useEffect(() => {
-    localStorage.setItem('stockFavorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  // Save dark mode to localStorage
-  useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
-  }, [darkMode]);
-
-  // Portfolio state
+  
+  // 持仓管理
   const [portfolio, setPortfolio] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('stockPortfolio');
@@ -78,28 +147,64 @@ export default function Home() {
   const [showPortfolioModal, setShowPortfolioModal] = useState(null);
   const [portfolioQty, setPortfolioQty] = useState('');
   const [portfolioCost, setPortfolioCost] = useState('');
+  
+  // 股票对比
+  const [compareList, setCompareList] = useState([]);
 
-  // Compare state
-  const [compareStocks, setCompareStocks] = useState([]);
+  // 保存自选股到localStorage
+  useEffect(() => {
+    localStorage.setItem('stockFavorites', JSON.stringify(favorites));
+  }, [favorites]);
 
-  const toggleCompare = (stock, e) => {
-    e.stopPropagation();
-    setCompareStocks(prev => {
-      if (prev.find(s => s.id === stock.id)) {
-        return prev.filter(s => s.id !== stock.id);
-      }
-      if (prev.length >= 3) return prev;
-      return [...prev, stock];
-    });
-  };
+  // 保存提醒到localStorage
+  useEffect(() => {
+    localStorage.setItem('stockAlerts', JSON.stringify(alerts));
+  }, [alerts]);
 
-  // Save portfolio to localStorage
+  // 保存持仓到localStorage
   useEffect(() => {
     localStorage.setItem('stockPortfolio', JSON.stringify(portfolio));
   }, [portfolio]);
 
-  const addToPortfolio = (stock, e) => {
-    e.stopPropagation();
+  // 保存主题
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
+  const toggleFavorite = (stockId) => {
+    setFavorites(prev => 
+      prev.includes(stockId) 
+        ? prev.filter(id => id !== stockId)
+        : [...prev, stockId]
+    );
+  };
+
+  const openAlertModal = (stock) => {
+    setShowAlertModal(stock);
+    setAlertPrice(stock.price ? stock.price.toFixed(2) : '');
+    setAlerts(stock.id) ? setAlertType(alerts[stock.id].type) : setAlertType('above');
+  };
+
+  const saveAlert = () => {
+    const price = parseFloat(alertPrice);
+    if (isNaN(price) || price <= 0) return;
+    
+    setAlerts(prev => ({
+      ...prev,
+      [showAlertModal.id]: { price, type: alertType, triggered: false }
+    }));
+    setShowAlertModal(null);
+  };
+
+  const deleteAlert = (stockId) => {
+    setAlerts(prev => {
+      const newAlerts = Object.assign({}, prev);
+      delete newAlerts[stockId];
+      return newAlerts;
+    });
+  };
+
+  const addToPortfolio = (stock) => {
     setShowPortfolioModal(stock);
     const existing = portfolio.find(p => p.id === stock.id);
     if (existing) {
@@ -107,7 +212,7 @@ export default function Home() {
       setPortfolioCost(existing.cost.toString());
     } else {
       setPortfolioQty('');
-      setPortfolioCost(stock.price?.toFixed(2) || '');
+      setPortfolioCost(stock.price ? stock.price.toFixed(2) : '');
     }
   };
 
@@ -119,16 +224,23 @@ export default function Home() {
     setPortfolio(prev => {
       const existing = prev.find(p => p.id === showPortfolioModal.id);
       if (existing) {
-        return prev.map(p => p.id === showPortfolioModal.id ? { ...p, qty, cost } : p);
+        return prev.map(p => p.id === showPortfolioModal.id ? Object.assign({}, p, { qty, cost }) : p);
       }
       return [...prev, { id: showPortfolioModal.id, symbol: showPortfolioModal.symbol, name: showPortfolioModal.name, market: showPortfolioModal.market, qty, cost }];
     });
     setShowPortfolioModal(null);
   };
 
-  const removeFromPortfolio = (stockId, e) => {
-    e.stopPropagation();
+  const removeFromPortfolio = (stockId) => {
     setPortfolio(prev => prev.filter(p => p.id !== stockId));
+  };
+
+  const toggleCompare = (stock) => {
+    if (compareList.find(s => s.id === stock.id)) {
+      setCompareList(prev => prev.filter(s => s.id !== stock.id));
+    } else if (compareList.length < 3) {
+      setCompareList(prev => [...prev, stock]);
+    }
   };
 
   const portfolioStats = useMemo(() => {
@@ -145,139 +257,34 @@ export default function Home() {
       }
     });
     
-    return {
-      totalValue,
-      totalCost,
-      pnl: totalValue - totalCost,
-      pnlPercent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
-    };
+    const pnl = totalValue - totalCost;
+    const pnlPercent = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+    
+    return { totalValue, totalCost, pnl, pnlPercent };
   }, [portfolio, stocks]);
-
-  // Save alerts to localStorage
-  useEffect(() => {
-    localStorage.setItem('stockAlerts', JSON.stringify(alerts));
-  }, [alerts]);
-
-  // Check price alerts when stocks change
-  useEffect(() => {
-    if (!stocks.length || typeof window === 'undefined') return;
-    
-    Object.entries(alerts).forEach(([stockId, alert]) => {
-      const stock = stocks.find(s => s.id === stockId);
-      if (!stock) return;
-      
-      const triggered = 
-        (alert.type === 'above' && stock.price >= alert.price) ||
-        (alert.type === 'below' && stock.price <= alert.price);
-      
-      if (triggered && !alert.triggered) {
-        // Update alert to prevent repeated notifications
-        setAlerts(prev => ({
-          ...prev,
-          [stockId]: { ...alert, triggered: true }
-        }));
-        
-        // Show browser notification
-        if (Notification.permission === 'granted') {
-          new Notification('📢 价格提醒', {
-            body: `${stock.symbol} 当前价格 ${stock.market === '港股' ? 'HK$' : '¥'}${stock.price.toFixed(2)}，${alert.type === 'above' ? '高于' : '低于'}设置的 ¥${alert.price}`,
-            icon: '📊'
-          });
-        }
-        
-        // Also show in-app alert
-        alert(`${stock.symbol} 达到提醒价格! 当前: ${stock.market === '港股' ? 'HK$' : '¥'}${stock.price.toFixed(2)}`);
-      }
-    });
-  }, [stocks]);
-
-  // Request notification permission
-  useEffect(() => {
-    if (typeof window !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  const toggleFavorite = (stockId, e) => {
-    e.stopPropagation();
-    setFavorites(prev => 
-      prev.includes(stockId) 
-        ? prev.filter(id => id !== stockId)
-        : [...prev, stockId]
-    );
-  };
-
-  const openAlertModal = (stock, e) => {
-    e.stopPropagation();
-    setSelectedStock(stock);
-    setShowAlertModal(stock);
-    setAlertPrice(stock.price?.toFixed(2) || '');
-    setAlerts(stock.id) ? setAlertType(alerts[stock.id].type) : setAlertType('above');
-  };
-
-  const saveAlert = () => {
-    const price = parseFloat(alertPrice);
-    if (isNaN(price) || price <= 0) return;
-    
-    setAlerts(prev => ({
-      ...prev,
-      [showAlertModal.id]: {
-        price,
-        type: alertType,
-        triggered: false
-      }
-    }));
-    setShowAlertModal(null);
-  };
-
-  const deleteAlert = (stockId, e) => {
-    e.stopPropagation();
-    setAlerts(prev => {
-      const newAlerts = { ...prev };
-      delete newAlerts[stockId];
-      return newAlerts;
-    });
-  };
-
-  const favoriteStocks = useMemo(() => 
-    stocks.filter(s => favorites.includes(s.id)),
-    [stocks, favorites]
-  );
 
   const fetchPrices = async () => {
     try {
-      const [pricesRes, signalsRes, sectorsRes] = await Promise.all([
-        fetch(`${API_BASE}/crypto/prices`),
-        fetch(`${API_BASE}/signals`),
-        fetch(`${API_BASE}/sectors`)
-      ]);
+      const res = await fetch(API_BASE + '/stocks');
+      const data = await res.json();
       
-      if (!pricesRes.ok) throw new Error('API Error');
-      
-      const pricesData = await pricesRes.json();
-      const signalsData = await signalsRes.json();
-      const sectorsData = await sectorsRes.json();
-      
-      const signalsMap = {};
-      signalsData.forEach(s => {
-        signalsMap[s.stock.id] = s.signal;
+      const merged = STOCKS_CONFIG.map(config => {
+        const stockData = data.find(s => s.id === config.id);
+        return {
+          id: config.id,
+          symbol: config.symbol,
+          name: config.name,
+          market: config.market,
+          price: stockData ? stockData.price : 0,
+          change24h: stockData ? stockData.change24h : 0,
+          signal: stockData ? stockData.signal : { signal: 'HOLD', reason: '数据获取中' }
+        };
       });
       
-      const mergedData = pricesData.map(stock => ({
-        ...stock,
-        signal: signalsMap[stock.id] || { signal: 'HOLD', reason: '分析中' }
-      }));
-      
-      setStocks(mergedData);
-      setSectors(sectorsData);
+      setStocks(merged);
       setLastUpdate(new Date());
     } catch (error) {
-      console.log('使用模拟数据', error.message);
-      const mergedMock = MOCK_DATA.map(stock => ({
-        ...stock,
-        signal: MOCK_SIGNALS[stock.id] || { signal: 'HOLD', reason: '分析中' }
-      }));
-      setStocks(mergedMock);
+      console.error('获取数据失败:', error);
     } finally {
       setLoading(false);
     }
@@ -289,98 +296,27 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch K-line when stock is selected
-  useEffect(() => {
-    if (!selectedStock) {
-      setKlineData(null);
-      return;
-    }
-    
-    const fetchKline = async () => {
-      setKlineLoading(true);
-      try {
-        const res = await fetch(`${API_BASE}/crypto/ohlc/${selectedStock.id}?days=30`);
-        const data = await res.json();
-        setKlineData(data);
-      } catch (e) {
-        console.error('K-line fetch error:', e);
-        setKlineData(null);
-      } finally {
-        setKlineLoading(false);
-      }
-    };
-    
-    fetchKline();
-  }, [selectedStock]);
+  const getSignalColor = (signal) => {
+    if (!signal) return '#8c8c8c';
+    const s = signal.signal || signal;
+    if (s.includes && s.includes('BUY')) return '#52c41a';
+    if (s.includes && s.includes('SELL')) return '#ff4d4f';
+    return '#faad14';
+  };
 
-  // Render chart when K-line data changes
-  useEffect(() => {
-    if (!klineData?.klines?.length || !chartContainerRef.current) return;
-    
-    // Clean up previous chart
-    if (chartRef.current) {
-      chartRef.current.remove();
-    }
-    
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: 300,
-      layout: {
-        background: { color: '#1e293b' },
-        textColor: '#94a3b8'
-      },
-      grid: {
-        vertLines: { color: '#334155' },
-        horzLines: { color: '#334155' }
-      },
-      crosshair: {
-        mode: 1
-      },
-      rightPriceScale: {
-        borderColor: '#334155'
-      },
-      timeScale: {
-        borderColor: '#334155',
-        timeVisible: true
-      }
-    });
-    
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#22c55e',
-      downColor: '#ef4444',
-      borderUpColor: '#22c55e',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e',
-      wickDownColor: '#ef4444'
-    });
-    
-    const data = klineData.klines.map(k => ({
-      time: k.date,
-      open: k.open,
-      high: k.high,
-      low: k.low,
-      close: k.close
-    }));
-    
-    candlestickSeries.setData(data);
-    chart.timeScale().fitContent();
-    chartRef.current = chart;
-    
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-    };
-  }, [klineData]);
+  const getSignalText = (signal) => {
+    if (!signal) return '分析中';
+    return signal.signal || signal;
+  };
+
+  const formatPrice = (price) => {
+    if (!price) return '--';
+    if (price >= 1) return price.toFixed(2);
+    return price.toFixed(4);
+  };
 
   const filteredStocks = useMemo(() => {
-    let result = [...stocks];
+    let result = stocks.slice();
     
     if (activeTab !== 'all') {
       result = result.filter(s => s.market === activeTab);
@@ -388,11 +324,11 @@ export default function Home() {
     
     if (signalFilter !== 'all') {
       if (signalFilter === 'buy') {
-        result = result.filter(s => s.signal?.signal?.includes('BUY'));
+        result = result.filter(s => s.signal && s.signal.signal && s.signal.signal.includes('BUY'));
       } else if (signalFilter === 'sell') {
-        result = result.filter(s => s.signal?.signal?.includes('SELL'));
+        result = result.filter(s => s.signal && s.signal.signal && s.signal.signal.includes('SELL'));
       } else if (signalFilter === 'hold') {
-        result = result.filter(s => s.signal?.signal === 'HOLD');
+        result = result.filter(s => s.signal && s.signal.signal === 'HOLD');
       }
     }
     
@@ -405,81 +341,29 @@ export default function Home() {
       );
     }
     
-    // Filter by selected sector
-    if (selectedSector) {
-      const sectorStocks = sectors.find(s => s.name === selectedSector);
-      if (sectorStocks) {
-        // Get stock IDs from sector
-        const sectorNames = {
-          '银行': ['sh600036','sh601988','sh601398','sh600016','sh600000','sz000001','hk00939','hk01398','hk03988','hk00011'],
-          '保险': ['sh601318','hk02318','hk02628','hk02328'],
-          '白酒': ['sh600519','sz000858','sz000596','sz000869'],
-          '科技': ['hk00700','hk09988','hk01810','hk09618','sz002230','sz002415','sh688041','sz300059'],
-          '医药': ['sh600276','sz000538','sz000423','sz300015','sz300122','sz300142','sz300347','sz300750'],
-          '新能源': ['sz002594','sz002714','sz300014','hk00175'],
-          '房地产': ['sz000002','hk00017','hk00016','hk00012'],
-          '通信': ['sh600050','hk00981'],
-          '基建': ['sh601888','sh601668','sh600031','sh600150','hk00267','hk00690','hk00667'],
-          '券商': ['sh600030','hk00388','hk06030','hk06837'],
-          '消费': ['sz000333','sh600690','sz000651','hk03690','hk02331','hk02020'],
-          '能源': ['sh600028','sh601857','sh600309','sh600585','sh600547','hk00386'],
-          '电力': ['sh600900','hk01171'],
-          '物流': ['sh601111','sh600009','sh600018','hk01928','hk00027'],
-          '传媒': ['hk09961','hk01024'],
-          '服装': ['hk02020']
-        };
-        const sectorIds = sectorNames[selectedSector] || [];
-        result = result.filter(s => sectorIds.includes(s.id));
-      }
-    }
-    
-    switch (sortBy) {
-      case 'price_desc':
-        result.sort((a, b) => (b.price || 0) - (a.price || 0));
-        break;
-      case 'price_asc':
-        result.sort((a, b) => (a.price || 0) - (b.price || 0));
-        break;
-      case 'change_desc':
-        result.sort((a, b) => (b.change24h || 0) - (a.change24h || 0));
-        break;
-      case 'change_asc':
-        result.sort((a, b) => (a.change24h || 0) - (b.change24h || 0));
-        break;
-      default:
-        break;
-    }
+    if (sortBy === 'price_asc') result.sort((a, b) => b.price - a.price);
+    if (sortBy === 'price_desc') result.sort((a, b) => a.price - b.price);
+    if (sortBy === 'change_asc') result.sort((a, b) => b.change24h - a.change24h);
+    if (sortBy === 'change_desc') result.sort((a, b) => a.change24h - b.change24h);
+    if (sortBy === 'name') result.sort((a, b) => a.symbol.localeCompare(b.symbol));
     
     return result;
   }, [stocks, activeTab, signalFilter, search, sortBy]);
 
-  const getSignalColor = (signal) => {
-    switch (signal) {
-      case 'STRONG_BUY': return { bg: '#052e16', border: '#22c55e', text: '#4ade80' };
-      case 'BUY': return { bg: '#14532d', border: '#16a34a', text: '#86efac' };
-      case 'HOLD': return { bg: '#713f12', border: '#ca8a04', text: '#fde047' };
-      case 'SELL': return { bg: '#450a0a', border: '#dc2626', text: '#fca5a5' };
-      case 'STRONG_SELL': return { bg: '#7f1d1d', border: '#b91c1c', text: '#f87171' };
-      default: return { bg: '#1f2937', border: '#4b5563', text: '#9ca3af' };
-    }
-  };
-
-  const formatPrice = (price) => {
-    if (!price || price === 0) return '--';
-    if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    if (price >= 1) return price.toFixed(2);
-    return price.toFixed(4);
-  };
-
   const stats = useMemo(() => {
-    const buy = stocks.filter(s => s.signal?.signal?.includes('BUY')).length;
-    const sell = stocks.filter(s => s.signal?.signal?.includes('SELL')).length;
+    const buy = stocks.filter(s => s.signal && s.signal.signal && s.signal.signal.includes('BUY')).length;
+    const sell = stocks.filter(s => s.signal && s.signal.signal && s.signal.signal.includes('SELL')).length;
     const hold = stocks.length - buy - sell;
     const avgChange = stocks.length > 0 
       ? stocks.reduce((sum, s) => sum + (s.change24h || 0), 0) / stocks.length 
       : 0;
     return { buy, sell, hold, total: stocks.length, avgChange };
   }, [stocks]);
+
+  const bgColor = darkMode ? '#0f172a' : '#f8fafc';
+  const cardBg = darkMode ? 'rgba(30, 41, 59, 0.6)' : 'white';
+  const textColor = darkMode ? '#f1f5f9' : '#1e293b';
+  const borderColor = darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
 
   return (
     <>
@@ -489,14 +373,14 @@ export default function Home() {
       
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        color: '#f1f5f9',
+        background: darkMode ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+        color: textColor,
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
       }}>
         <header style={{
-          background: 'rgba(15, 23, 42, 0.9)',
+          background: darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.9)',
           backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          borderBottom: '1px solid ' + borderColor,
           position: 'sticky',
           top: 0,
           zIndex: 100
@@ -509,7 +393,7 @@ export default function Home() {
                   <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, background: 'linear-gradient(90deg, #60a5fa, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     Stock Signal Pro
                   </h1>
-                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>A股 · 港股 · 实时信号</p>
+                  <p style={{ fontSize: '0.75rem', color: darkMode ? '#94a3b8' : '#64748b', margin: 0 }}>A股 · 港股 · 实时信号</p>
                 </div>
               </div>
               
@@ -526,38 +410,28 @@ export default function Home() {
                   </span>
                 </div>
                 
-                <button 
-                  onClick={fetchPrices}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    fontSize: '0.8rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.375rem'
-                  }}
-                >
-                  <span>🔄</span> 刷新
+                <button onClick={fetchPrices} style={{
+                  padding: '0.5rem 1rem',
+                  background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.8rem'
+                }}>
+                  🔄 刷新
                 </button>
                 
-                <button 
-                  onClick={() => setDarkMode(!darkMode)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: 'rgba(255,255,255,0.1)',
-                    color: '#94a3b8',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    fontSize: '0.8rem'
-                  }}
-                >
+                <button onClick={() => setDarkMode(!darkMode)} style={{
+                  padding: '0.5rem 1rem',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: textColor,
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}>
                   {darkMode ? '🌙' : '☀️'}
                 </button>
               </div>
@@ -566,663 +440,318 @@ export default function Home() {
         </header>
 
         <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem' }}>
-          {/* Quick Stats */}
+          {/* 统计面板 */}
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
             gap: '1rem',
             marginBottom: '1.5rem'
           }}>
-            <div style={{ background: 'rgba(30, 41, 59, 0.6)', borderRadius: '12px', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0 0 0.25rem 0' }}>平均涨跌幅</p>
+            <div style={{ background: cardBg, borderRadius: '12px', padding: '1rem', border: '1px solid ' + borderColor }}>
+              <p style={{ fontSize: '0.7rem', color: darkMode ? '#64748b' : '#94a3b8', margin: '0 0 0.25rem 0' }}>平均涨跌幅</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: stats.avgChange >= 0 ? '#4ade80' : '#f87171' }}>
                 {stats.avgChange >= 0 ? '↑' : '↓'} {Math.abs(stats.avgChange).toFixed(2)}%
               </p>
             </div>
-            <div style={{ background: 'rgba(30, 41, 59, 0.6)', borderRadius: '12px', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0 0 0.25rem 0' }}>上涨股票</p>
+            <div style={{ background: cardBg, borderRadius: '12px', padding: '1rem', border: '1px solid ' + borderColor }}>
+              <p style={{ fontSize: '0.7rem', color: darkMode ? '#64748b' : '#94a3b8', margin: '0 0 0.25rem 0' }}>上涨股票</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: '#4ade80' }}>
                 {stocks.filter(s => s.change24h > 0).length}
               </p>
             </div>
-            <div style={{ background: 'rgba(30, 41, 59, 0.6)', borderRadius: '12px', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0 0 0.25rem 0' }}>下跌股票</p>
+            <div style={{ background: cardBg, borderRadius: '12px', padding: '1rem', border: '1px solid ' + borderColor }}>
+              <p style={{ fontSize: '0.7rem', color: darkMode ? '#64748b' : '#94a3b8', margin: '0 0 0.25rem 0' }}>下跌股票</p>
               <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: '#f87171' }}>
                 {stocks.filter(s => s.change24h < 0).length}
               </p>
             </div>
-            <div style={{ background: 'rgba(30, 41, 59, 0.6)', borderRadius: '12px', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0 0 0.25rem 0' }}>最高涨幅</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: '#4ade80' }}>
-                ↑ {Math.max(...stocks.map(s => s.change24h || 0)).toFixed(2)}%
+            <div style={{ background: cardBg, borderRadius: '12px', padding: '1rem', border: '1px solid ' + borderColor }}>
+              <p style={{ fontSize: '0.7rem', color: darkMode ? '#64748b' : '#94a3b8', margin: '0 0 0.25rem 0' }}>持仓盈亏</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: portfolioStats.pnl >= 0 ? '#4ade80' : '#f87171' }}>
+                {portfolioStats.pnl >= 0 ? '↑' : '↓'} ¥{Math.abs(portfolioStats.pnl).toFixed(0)}
               </p>
             </div>
           </div>
 
-          {/* Sector Heat Map */}
-          {sectors.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '0.9rem' }}>🌡️</span>
-                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#94a3b8' }}>板块涨跌</span>
-                {selectedSector && (
-                  <button
-                    onClick={() => setSelectedSector(null)}
-                    style={{
-                      padding: '0.125rem 0.5rem',
-                      background: 'rgba(255,255,255,0.1)',
-                      border: 'none',
-                      borderRadius: '4px',
-                      color: '#94a3b8',
-                      fontSize: '0.7rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    清除筛选
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {sectors.map(sector => {
-                  const isPositive = sector.avgChange >= 0;
-                  const intensity = Math.min(Math.abs(sector.avgChange) / 3, 1); // max at 3%
-                  const bgColor = isPositive 
-                    ? `rgba(34, 197, 94, ${0.1 + intensity * 0.4})`
-                    : `rgba(239, 68, 68, ${0.1 + intensity * 0.4})`;
-                  const borderColor = isPositive ? '#22c55e' : '#ef4444';
-                  const isSelected = selectedSector === sector.name;
-                  
-                  return (
-                    <button
-                      key={sector.name}
-                      onClick={() => setSelectedSector(isSelected ? null : sector.name)}
-                      style={{
-                        padding: '0.5rem 0.75rem',
-                        background: bgColor,
-                        border: isSelected ? `2px solid ${borderColor}` : `1px solid ${borderColor}40`,
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        minWidth: '70px'
-                      }}
-                    >
-                      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: isPositive ? '#4ade80' : '#f87171' }}>
-                        {sector.name}
-                      </span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: '700', color: isPositive ? '#4ade80' : '#f87171' }}>
-                        {isPositive ? '↑' : '↓'}{Math.abs(sector.avgChange).toFixed(2)}%
-                      </span>
-                      <span style={{ fontSize: '0.6rem', color: '#94a3b8' }}>
-                        {sector.count}只
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Portfolio Summary */}
-          {portfolio.length > 0 && (
-            <div style={{ 
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
-              borderRadius: '12px', 
-              padding: '1rem', 
-              marginBottom: '1.5rem',
-              border: '1px solid rgba(139, 92, 246, 0.3)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#a78bfa' }}>💰 我的持仓 ({portfolio.length}只)</span>
-                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                  持仓: ¥{portfolioStats.totalCost.toLocaleString()} | 
-                  当前: ¥{portfolioStats.totalValue.toLocaleString()} | 
-                  <span style={{ color: portfolioStats.pnl >= 0 ? '#4ade80' : '#f87171', fontWeight: '600' }}>
-                    {portfolioStats.pnl >= 0 ? '↑' : '↓'}¥{Math.abs(portfolioStats.pnl).toLocaleString()} ({portfolioStats.pnlPercent.toFixed(2)}%)
-                  </span>
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {portfolio.map(p => {
-                  const stock = stocks.find(s => s.id === p.id);
-                  const currentValue = stock ? stock.price * p.qty : 0;
-                  const costValue = p.cost * p.qty;
-                  const pnl = currentValue - costValue;
-                  const pnlPercent = (pnl / costValue) * 100;
-                  
-                  return (
-                    <div key={p.id} style={{
-                      padding: '0.375rem 0.625rem',
-                      background: 'rgba(30, 41, 59, 0.6)',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{p.symbol}</span>
-                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{p.qty}股</span>
-                      <span style={{ fontSize: '0.7rem', color: pnl >= 0 ? '#4ade80' : '#f87171' }}>
-                        {pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(1)}%
-                      </span>
-                      <button
-                        onClick={(e) => removeFromPortfolio(p.id, e)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#64748b',
-                          cursor: 'pointer',
-                          fontSize: '0.7rem',
-                          padding: '0'
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Compare Panel */}
-          {compareStocks.length > 0 && (
-            <div style={{ 
-              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2))',
-              borderRadius: '12px', 
-              padding: '1rem', 
-              marginBottom: '1.5rem',
-              border: '1px solid rgba(59, 130, 246, 0.3)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#60a5fa' }}>📊 股票对比 ({compareStocks.length}/3)</span>
-                <button
-                  onClick={() => setCompareStocks([])}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#94a3b8',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem'
-                  }}
-                >
-                  清除
-                </button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${compareStocks.length}, 1fr)`, gap: '1rem' }}>
-                {compareStocks.map(stock => (
-                  <div key={stock.id} style={{
-                    background: 'rgba(30, 41, 59, 0.6)',
-                    borderRadius: '8px',
-                    padding: '0.75rem',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '0.25rem' }}>{stock.symbol}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem' }}>{stock.name}</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
-                      {stock.market === '港股' ? 'HK$' : '¥'}{stock.price?.toFixed(2)}
-                    </div>
-                    <div style={{ 
-                      fontSize: '0.85rem', 
-                      color: stock.change24h >= 0 ? '#4ade80' : '#f87171',
-                      marginBottom: '0.5rem'
-                    }}>
-                      {stock.change24h >= 0 ? '+' : ''}{stock.change24h?.toFixed(2)}%
-                    </div>
-                    <button
-                      onClick={(e) => toggleCompare(stock, e)}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        color: '#f87171',
-                        fontSize: '0.7rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      移除
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Search & Filter */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '1rem' }}>🔍</span>
+          {/* 搜索和筛选 */}
+          <div style={{ 
+            background: cardBg, 
+            borderRadius: '12px', 
+            padding: '1rem', 
+            marginBottom: '1.5rem',
+            border: '1px solid ' + borderColor
+          }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <input
                 type="text"
-                placeholder="搜索股票代码/名称..."
+                placeholder="搜索股票代码、名称..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  width: '100%',
-                  padding: '0.625rem 1rem 0.625rem 2.5rem',
-                  background: 'rgba(30, 41, 59, 0.6)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  flex: '1',
+                  minWidth: '200px',
+                  padding: '0.5rem 1rem',
+                  background: darkMode ? '#0f172a' : '#f1f5f9',
+                  border: '1px solid ' + borderColor,
                   borderRadius: '8px',
-                  color: '#f1f5f9',
-                  fontSize: '0.875rem',
-                  outline: 'none',
-                  boxSizing: 'border-box'
+                  color: textColor,
+                  fontSize: '0.9rem'
                 }}
               />
+              
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: darkMode ? '#0f172a' : '#f1f5f9',
+                  border: '1px solid ' + borderColor,
+                  borderRadius: '8px',
+                  color: textColor,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">全部市场</option>
+                <option value="A股">A股</option>
+                <option value="港股">港股</option>
+              </select>
+              
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: darkMode ? '#0f172a' : '#f1f5f9',
+                  border: '1px solid ' + borderColor,
+                  borderRadius: '8px',
+                  color: textColor,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="default">默认排序</option>
+                <option value="price_asc">价格从高到低</option>
+                <option value="price_desc">价格从低到高</option>
+                <option value="change_asc">涨幅从高到低</option>
+                <option value="change_desc">涨幅从低到高</option>
+                <option value="name">名称排序</option>
+              </select>
+              
+              <select
+                value={signalFilter}
+                onChange={(e) => setSignalFilter(e.target.value)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: darkMode ? '#0f172a' : '#f1f5f9',
+                  border: '1px solid ' + borderColor,
+                  borderRadius: '8px',
+                  color: textColor,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">全部信号</option>
+                <option value="buy">买入信号</option>
+                <option value="hold">持有信号</option>
+                <option value="sell">卖出信号</option>
+              </select>
             </div>
             
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: '0.625rem 1rem',
-                background: 'rgba(30, 41, 59, 0.6)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                color: '#f1f5f9',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-            >
-              <option value="default">默认排序</option>
-              <option value="price_desc">价格从高到低</option>
-              <option value="price_asc">价格从低到高</option>
-              <option value="change_desc">涨幅从高到低</option>
-              <option value="change_asc">涨幅从低到高</option>
-            </select>
-          </div>
-
-          {/* Filter Tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            {[
-              { key: 'all', label: '全部', count: stocks.length },
-              { key: 'A股', label: 'A股', count: stocks.filter(s => s.market === 'A股').length },
-              { key: '港股', label: '港股', count: stocks.filter(s => s.market === '港股').length }
-            ].map(tab => (
+            {/* 快捷筛选 */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => setSignalFilter('buy')}
                 style={{
-                  padding: '0.5rem 1rem',
-                  background: activeTab === tab.key ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : 'rgba(255,255,255,0.05)',
-                  color: activeTab === tab.key ? 'white' : '#94a3b8',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.8rem'
+                  padding: '0.25rem 0.75rem',
+                  background: signalFilter === 'buy' ? '#52c41a' : 'rgba(82, 196, 26, 0.1)',
+                  color: signalFilter === 'buy' ? 'white' : '#52c41a',
+                  border: '1px solid #52c41a',
+                  borderRadius: '9999px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer'
                 }}
               >
-                {tab.label} ({tab.count})
+                🚀 涨幅榜
               </button>
-            ))}
-            
-            <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }} />
-            
-            {[
-              { key: 'all', label: '全部' },
-              { key: 'top_gainers', label: '🚀 涨幅榜' },
-              { key: 'top_losers', label: '💸 跌幅榜' }
-            ].map(filter => (
               <button
-                key={filter.key}
-                onClick={() => {
-                  if (filter.key === 'top_gainers') {
-                    setSignalFilter('buy');
-                    setSortBy('change_desc');
-                  } else if (filter.key === 'top_losers') {
-                    setSignalFilter('sell');
-                    setSortBy('change_asc');
-                  } else {
-                    setSignalFilter('all');
-                    setSortBy('default');
-                  }
-                }}
+                onClick={() => setSignalFilter('sell')}
                 style={{
-                  padding: '0.5rem 1rem',
-                  background: (filter.key === 'top_gainers' && sortBy === 'change_desc') || (filter.key === 'top_losers' && sortBy === 'change_asc') ? 'rgba(255,255,255,0.15)' : 'transparent',
-                  color: '#94a3b8',
-                  border: '1px solid',
-                  borderColor: (filter.key === 'top_gainers' && sortBy === 'change_desc') || (filter.key === 'top_losers' && sortBy === 'change_asc') ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.8rem'
+                  padding: '0.25rem 0.75rem',
+                  background: signalFilter === 'sell' ? '#ff4d4f' : 'rgba(255, 77, 79, 0.1)',
+                  color: signalFilter === 'sell' ? 'white' : '#ff4d4f',
+                  border: '1px solid #ff4d4f',
+                  borderRadius: '9999px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer'
                 }}
               >
-                {filter.label}
+                📉 跌幅榜
               </button>
-            ))}
-            
-            <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }} />
-            
-            {[
-              { key: 'all', label: '全部信号' },
-              { key: 'buy', label: '🟢 买入' },
-              { key: 'hold', label: '🟡 持有' },
-              { key: 'sell', label: '🔴 卖出' }
-            ].map(filter => (
-              <button
-                key={filter.key}
-                onClick={() => setSignalFilter(filter.key)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: signalFilter === filter.key ? 'rgba(255,255,255,0.15)' : 'transparent',
-                  color: '#94a3b8',
-                  border: '1px solid',
-                  borderColor: signalFilter === filter.key ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '0.8rem'
-                }}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '1rem' }}>
-            共 {filteredStocks.length} 只股票 {search && `(搜索: "${search}")`}
-          </p>
-
-          {loading && (
-            <div style={{ textAlign: 'center', padding: '4rem' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
-              <p style={{ color: '#94a3b8' }}>加载中...</p>
+              {favorites.length > 0 && (
+                <button
+                  onClick={() => setSearch(favorites.join(','))}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    color: '#a78bfa',
+                    border: '1px solid #a78bfa',
+                    borderRadius: '9999px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ⭐ 自选股 ({favorites.length})
+                </button>
+              )}
+              {portfolio.length > 0 && (
+                <button
+                  onClick={() => setSearch(portfolio.map(function(p) { return p.id; }).join(','))}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    background: 'rgba(251, 191, 36, 0.1)',
+                    color: '#fbbf24',
+                    border: '1px solid #fbbf24',
+                    borderRadius: '9999px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  💰 持仓 ({portfolio.length})
+                </button>
+              )}
             </div>
-          )}
+          </div>
 
-          {!loading && favoriteStocks.length > 0 && activeTab === 'all' && signalFilter === 'all' && !search && (
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1rem', color: '#fbbf24', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                ⭐ 我的自选 ({favoriteStocks.length})
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                {favoriteStocks.map(stock => {
-                  const signal = stock.signal || { signal: 'HOLD', reason: '分析中' };
-                  const colors = getSignalColor(signal.signal);
-                  const isUp = stock.change24h >= 0;
-                  const isFav = favorites.includes(stock.id);
-                  
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '3rem' }}>
+              <p style={{ fontSize: '1.25rem' }}>加载中...</p>
+            </div>
+          ) : (
+            <>
+              {/* 股票列表 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+                {filteredStocks.map(function(stock) {
                   return (
-                    <div 
+                    <div
                       key={stock.id}
-                      onClick={() => setSelectedStock(selectedStock?.id === stock.id ? null : stock)}
                       style={{
-                        background: 'rgba(30, 41, 59, 0.6)',
-                        border: selectedStock?.id === stock.id ? `2px solid ${colors.border}` : `1px solid #fbbf2440`,
-                        borderRadius: '16px',
-                        padding: '1.25rem',
+                        background: cardBg,
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        border: '1px solid ' + borderColor,
                         cursor: 'pointer',
-                        position: 'relative'
+                        transition: 'transform 0.2s, box-shadow 0.2s'
                       }}
                     >
-                      <button
-                        onClick={(e) => toggleFavorite(stock.id, e)}
-                        style={{
-                          position: 'absolute',
-                          top: '1rem',
-                          left: '1rem',
-                          background: 'none',
-                          border: 'none',
-                          fontSize: '1.25rem',
-                          cursor: 'pointer',
-                          padding: '0.25rem'
-                        }}
-                      >
-                        {isFav ? '⭐' : '☆'}
-                      </button>
-                      <button
-                        onClick={(e) => openAlertModal(stock, e)}
-                        style={{
-                          position: 'absolute',
-                          top: '1rem',
-                          left: '2.5rem',
-                          background: alerts[stock.id] ? 'rgba(251, 191, 36, 0.2)' : 'none',
-                          border: 'none',
-                          fontSize: '1rem',
-                          cursor: 'pointer',
-                          padding: '0.25rem',
-                          borderRadius: '4px'
-                        }}
-                        title="设置价格提醒"
-                      >
-                        {alerts[stock.id] ? '🔔' : '🔕'}
-                      </button>
-                      <button
-                        onClick={(e) => addToPortfolio(stock, e)}
-                        style={{
-                          position: 'absolute',
-                          top: '1rem',
-                          left: '3.75rem',
-                          background: portfolio.find(p => p.id === stock.id) ? 'rgba(139, 92, 246, 0.3)' : 'none',
-                          border: 'none',
-                          fontSize: '1rem',
-                          cursor: 'pointer',
-                          padding: '0.25rem',
-                          borderRadius: '4px'
-                        }}
-                        title={portfolio.find(p => p.id === stock.id) ? `持仓: ${portfolio.find(p => p.id === stock.id).qty}股` : '添加持仓'}
-                      >
-                        {portfolio.find(p => p.id === stock.id) ? '💰' : '💵'}
-                      </button>
-                      <button
-                        onClick={(e) => toggleCompare(stock, e)}
-                        style={{
-                          position: 'absolute',
-                          top: '1rem',
-                          left: '5rem',
-                          background: compareStocks.find(s => s.id === stock.id) ? 'rgba(59, 130, 246, 0.3)' : 'none',
-                          border: 'none',
-                          fontSize: '1rem',
-                          cursor: 'pointer',
-                          padding: '0.25rem',
-                          borderRadius: '4px'
-                        }}
-                        title={compareStocks.find(s => s.id === stock.id) ? '取消对比' : '对比股票'}
-                      >
-                        {compareStocks.find(s => s.id === stock.id) ? '📊' : '📈'}
-                      </button>
-                      <div style={{
-                        position: 'absolute',
-                        top: '1rem',
-                        right: '1rem',
-                        padding: '0.2rem 0.625rem',
-                        background: colors.bg,
-                        border: `1px solid ${colors.border}`,
-                        borderRadius: '9999px',
-                        fontSize: '0.7rem',
-                        fontWeight: '700',
-                        color: colors.text
-                      }}>
-                        {signal.signal}
-                      </div>
-
-                      <div style={{ marginBottom: '0.75rem', paddingRight: '4rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.125rem' }}>
-                          <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>{stock.symbol}</span>
-                          <span style={{ padding: '0.1rem 0.375rem', borderRadius: '4px', fontSize: '0.6rem', fontWeight: '600', background: stock.market === 'A股' ? 'rgba(220, 38, 38, 0.2)' : 'rgba(37, 99, 235, 0.2)', color: stock.market === 'A股' ? '#fca5a5' : '#93c5fd' }}>
-                            {stock.market}
-                          </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontWeight: '700', fontSize: '1.1rem' }}>{stock.symbol}</span>
+                            <span style={{ fontSize: '0.7rem', padding: '0.125rem 0.375rem', background: stock.market === 'A股' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(239, 68, 68, 0.2)', color: stock.market === 'A股' ? '#60a5fa' : '#f87171', borderRadius: '4px' }}>
+                              {stock.market}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', color: darkMode ? '#64748b' : '#94a3b8', margin: '0.25rem 0 0 0' }}>{stock.name}</p>
                         </div>
-                        <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>{stock.name}</p>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0 }}>¥{formatPrice(stock.price)}</p>
+                          <p style={{ fontSize: '0.875rem', fontWeight: '600', margin: '0.25rem 0 0 0', color: stock.change24h >= 0 ? '#4ade80' : '#f87171' }}>
+                            {stock.change24h >= 0 ? '↑' : '↓'} {Math.abs(stock.change24h).toFixed(2)}%
+                          </p>
+                        </div>
                       </div>
-
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-                          {stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.price)}
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid ' + borderColor }}>
+                        <span style={{ 
+                          padding: '0.25rem 0.75rem', 
+                          background: getSignalColor(stock.signal) + '20', 
+                          color: getSignalColor(stock.signal),
+                          borderRadius: '9999px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600'
+                        }}>
+                          {getSignalText(stock.signal)}
                         </span>
+                        
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          <button
+                            onClick={function(e) { e.stopPropagation(); toggleFavorite(stock.id); }}
+                            style={{
+                              padding: '0.25rem',
+                              background: 'none',
+                              border: 'none',
+                              fontSize: '1rem',
+                              cursor: 'pointer'
+                            }}
+                            title={favorites.includes(stock.id) ? '取消自选' : '加入自选'}
+                          >
+                            {favorites.includes(stock.id) ? '⭐' : '☆'}
+                          </button>
+                          <button
+                            onClick={function(e) { e.stopPropagation(); openAlertModal(stock); }}
+                            style={{
+                              padding: '0.25rem',
+                              background: 'none',
+                              border: 'none',
+                              fontSize: '1rem',
+                              cursor: 'pointer'
+                            }}
+                            title="价格提醒"
+                          >
+                            {alerts[stock.id] ? '🔔' : '🔕'}
+                          </button>
+                          <button
+                            onClick={function(e) { e.stopPropagation(); addToPortfolio(stock); }}
+                            style={{
+                              padding: '0.25rem',
+                              background: 'none',
+                              border: 'none',
+                              fontSize: '1rem',
+                              cursor: 'pointer'
+                            }}
+                            title="添加持仓"
+                          >
+                            {portfolio.find(function(p) { return p.id === stock.id; }) ? '💰' : '💵'}
+                          </button>
+                          <button
+                            onClick={function(e) { e.stopPropagation(); toggleCompare(stock); }}
+                            style={{
+                              padding: '0.25rem',
+                              background: 'none',
+                              border: 'none',
+                              fontSize: '1rem',
+                              cursor: 'pointer'
+                            }}
+                            title="对比"
+                          >
+                            {compareList.find(function(s) { return s.id === stock.id; }) ? '📊' : '📈'}
+                          </button>
+                        </div>
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem', background: isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '1rem' }}>{isUp ? '📈' : '📉'}</span>
-                        <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isUp ? '#4ade80' : '#f87171' }}>
-                          {isUp ? '+' : ''}{stock.change24h?.toFixed(2) || '0.00'}%
-                        </span>
-                      </div>
-
-                      <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>💡 {signal.reason || '分析中...'}</p>
                     </div>
                   );
                 })}
               </div>
-            </div>
+              
+              {/* 底部信息 */}
+              <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: darkMode ? '#64748b' : '#94a3b8' }}>
+                  <span>🕐</span>
+                  <span>数据来源: 腾讯财经</span>
+                  <span>•</span>
+                  <span>每30秒刷新</span>
+                  {lastUpdate ? <><span>•</span><span>{lastUpdate.toLocaleTimeString()}</span></> : null}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: darkMode ? '#475569' : '#94a3b8' }}>⚠️ 投资有风险，入市需谨慎</div>
+              </div>
+            </>
           )}
-
-          {!loading && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-              {filteredStocks.map(stock => {
-                const signal = stock.signal || { signal: 'HOLD', reason: '分析中' };
-                const colors = getSignalColor(signal.signal);
-                const isUp = stock.change24h >= 0;
-                const isFav = favorites.includes(stock.id);
-                
-                return (
-                  <div 
-                    key={stock.id}
-                    onClick={() => setSelectedStock(selectedStock?.id === stock.id ? null : stock)}
-                    style={{
-                      background: 'rgba(30, 41, 59, 0.6)',
-                      border: selectedStock?.id === stock.id ? `2px solid ${colors.border}` : `1px solid ${colors.border}40`,
-                      borderRadius: '16px',
-                      padding: '1.25rem',
-                      cursor: 'pointer',
-                      position: 'relative'
-                    }}
-                  >
-                    <button
-                      onClick={(e) => toggleFavorite(stock.id, e)}
-                      style={{
-                        position: 'absolute',
-                        top: '1rem',
-                        left: '1rem',
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '1.25rem',
-                        cursor: 'pointer',
-                        padding: '0.25rem'
-                      }}
-                    >
-                      {isFav ? '⭐' : '☆'}
-                    </button>
-                    <div style={{
-                      position: 'absolute',
-                      top: '1rem',
-                      right: '1rem',
-                      padding: '0.2rem 0.625rem',
-                      background: colors.bg,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: '9999px',
-                      fontSize: '0.7rem',
-                      fontWeight: '700',
-                      color: colors.text
-                    }}>
-                      {signal.signal}
-                    </div>
-
-                    <div style={{ marginBottom: '0.75rem', paddingRight: '4rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.125rem' }}>
-                        <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>{stock.symbol}</span>
-                        <span style={{ padding: '0.1rem 0.375rem', borderRadius: '4px', fontSize: '0.6rem', fontWeight: '600', background: stock.market === 'A股' ? 'rgba(220, 38, 38, 0.2)' : 'rgba(37, 99, 235, 0.2)', color: stock.market === 'A股' ? '#fca5a5' : '#93c5fd' }}>
-                          {stock.market}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>{stock.name}</p>
-                    </div>
-
-                    <div style={{ marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-                        {stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.price)}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem', background: isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '1rem' }}>{isUp ? '📈' : '📉'}</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: '600', color: isUp ? '#4ade80' : '#f87171' }}>
-                        {isUp ? '+' : ''}{stock.change24h?.toFixed(2) || '0.00'}%
-                      </span>
-                    </div>
-
-                    <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>💡 {signal.reason || '分析中...'}</p>
-                    
-                    {signal.rsi && (
-                      <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                        <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>RSI:</span>
-                        <span style={{ 
-                          fontSize: '0.75rem', 
-                          fontWeight: '600',
-                          color: parseFloat(signal.rsi) < 35 ? '#4ade80' : parseFloat(signal.rsi) > 65 ? '#f87171' : '#fbbf24'
-                        }}>
-                          {signal.rsi}
-                        </span>
-                      </div>
-                    )}
-
-                    {selectedStock?.id === stock.id && (
-                      <>
-                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                          <div>
-                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>开盘</p>
-                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0 }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.open)}</p>
-                          </div>
-                          <div>
-                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>最高</p>
-                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0, color: '#4ade80' }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.high)}</p>
-                          </div>
-                          <div>
-                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>最低</p>
-                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0, color: '#f87171' }}>{stock.market === '港股' ? 'HK$' : '¥'}{formatPrice(stock.low)}</p>
-                          </div>
-                          <div>
-                            <p style={{ fontSize: '0.65rem', color: '#64748b', margin: '0 0 0.125rem 0' }}>成交量</p>
-                            <p style={{ fontSize: '0.85rem', fontWeight: '600', margin: 0 }}>{(stock.volume / 10000).toFixed(1)}万</p>
-                          </div>
-                        </div>
-                        
-                        {/* K-Line Chart */}
-                        {stock.market === 'A股' && (
-                          <div style={{ marginTop: '1rem' }}>
-                            {klineLoading ? (
-                              <div style={{ textAlign: 'center', padding: '1rem' }}>
-                                <span style={{ fontSize: '1rem' }}>⏳</span>
-                                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0.5rem 0 0 0' }}>加载K线数据...</p>
-                              </div>
-                            ) : klineData?.klines?.length > 0 ? (
-                              <>
-                                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0 0 0.5rem 0' }}>📊 30日K线</p>
-                                <div ref={chartContainerRef} style={{ borderRadius: '8px', overflow: 'hidden' }} />
-                              </>
-                            ) : (
-                              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: '0.5rem 0' }}>暂无可用K线数据</p>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
-              <span>🕐</span>
-              <span>数据来源: 腾讯财经</span>
-              <span>•</span>
-              <span>每30秒刷新</span>
-              {lastUpdate && <><span>•</span><span>{lastUpdate.toLocaleTimeString()}</span></>}
-            </div>
-            <div style={{ fontSize: '0.7rem', color: '#475569' }}>⚠️ 投资有风险，入市需谨慎</div>
-          </div>
         </main>
       </div>
 
-      {/* Alert Modal */}
-      {showAlertModal && (
+      {/* 价格提醒弹窗 */}
+      {showAlertModal ? (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1234,7 +763,7 @@ export default function Home() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000
-        }} onClick={() => setShowAlertModal(null)}>
+        }} onClick={function() { setShowAlertModal(null); }}>
           <div style={{
             background: '#1e293b',
             borderRadius: '16px',
@@ -1242,38 +771,12 @@ export default function Home() {
             width: '90%',
             maxWidth: '400px',
             border: '1px solid rgba(255,255,255,0.1)'
-          }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              🔔 价格提醒
-            </h3>
+          }} onClick={function(e) { e.stopPropagation(); }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#fbbf24' }}>🔔 价格提醒</h3>
             <p style={{ color: '#94a3b8', marginBottom: '1rem' }}>
               {showAlertModal.symbol} - {showAlertModal.name}
             </p>
-            <p style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-              当前价格: {showAlertModal.market === '港股' ? 'HK$' : '¥'}{showAlertModal.price?.toFixed(2)}
-            </p>
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                提醒类型
-              </label>
-              <select
-                value={alertType}
-                onChange={(e) => setAlertType(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  background: '#0f172a',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '0.9rem'
-                }}
-              >
-                <option value="above">高于此价格提醒</option>
-                <option value="below">低于此价格提醒</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
                 提醒价格
               </label>
@@ -1281,7 +784,7 @@ export default function Home() {
                 type="number"
                 step="0.01"
                 value={alertPrice}
-                onChange={(e) => setAlertPrice(e.target.value)}
+                onChange={function(e) { setAlertPrice(e.target.value); }}
                 placeholder="输入价格"
                 style={{
                   width: '100%',
@@ -1293,6 +796,27 @@ export default function Home() {
                   fontSize: '0.9rem'
                 }}
               />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                提醒类型
+              </label>
+              <select
+                value={alertType}
+                onChange={function(e) { setAlertType(e.target.value); }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: '#0f172a',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <option value="above">高于价格提醒</option>
+                <option value="below">低于价格提醒</option>
+              </select>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
@@ -1310,9 +834,9 @@ export default function Home() {
               >
                 保存提醒
               </button>
-              {alerts[showAlertModal.id] && (
+              {alerts[showAlertModal.id] ? (
                 <button
-                  onClick={(e) => deleteAlert(showAlertModal.id, e)}
+                  onClick={function() { deleteAlert(showAlertModal.id); }}
                   style={{
                     padding: '0.75rem',
                     background: '#ef4444',
@@ -1325,9 +849,9 @@ export default function Home() {
                 >
                   删除
                 </button>
-              )}
+              ) : null}
               <button
-                onClick={() => setShowAlertModal(null)}
+                onClick={function() { setShowAlertModal(null); }}
                 style={{
                   padding: '0.75rem',
                   background: 'transparent',
@@ -1341,11 +865,11 @@ export default function Home() {
               </button>
             </div>
           </div>
-        )}
-      )}
+        </div>
+      ) : null}
 
-      {/* Portfolio Modal */}
-      {showPortfolioModal && (
+      {/* 持仓管理弹窗 */}
+      {showPortfolioModal ? (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1357,7 +881,7 @@ export default function Home() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000
-        }} onClick={() => setShowPortfolioModal(null)}>
+        }} onClick={function() { setShowPortfolioModal(null); }}>
           <div style={{
             background: '#1e293b',
             borderRadius: '16px',
@@ -1365,10 +889,8 @@ export default function Home() {
             width: '90%',
             maxWidth: '400px',
             border: '1px solid rgba(139, 92, 246, 0.3)'
-          }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              💰 添加持仓
-            </h3>
+          }} onClick={function(e) { e.stopPropagation(); }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#a78bfa' }}>💰 添加持仓</h3>
             <p style={{ color: '#94a3b8', marginBottom: '1rem' }}>
               {showPortfolioModal.symbol} - {showPortfolioModal.name}
             </p>
@@ -1380,7 +902,7 @@ export default function Home() {
                 type="number"
                 step="1"
                 value={portfolioQty}
-                onChange={(e) => setPortfolioQty(e.target.value)}
+                onChange={function(e) { setPortfolioQty(e.target.value); }}
                 placeholder="输入股数"
                 style={{
                   width: '100%',
@@ -1393,15 +915,15 @@ export default function Home() {
                 }}
               />
             </div>
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                成本价格
+                成本价 (每股)
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={portfolioCost}
-                onChange={(e) => setPortfolioCost(e.target.value)}
+                onChange={function(e) { setPortfolioCost(e.target.value); }}
                 placeholder="输入成本价"
                 style={{
                   width: '100%',
@@ -1430,8 +952,24 @@ export default function Home() {
               >
                 保存持仓
               </button>
+              {portfolio.find(function(p) { return p.id === showPortfolioModal.id; }) ? (
+                <button
+                  onClick={function() { removeFromPortfolio(showPortfolioModal.id); setShowPortfolioModal(null); }}
+                  style={{
+                    padding: '0.75rem',
+                    background: '#ef4444',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  删除
+                </button>
+              ) : null}
               <button
-                onClick={() => setShowPortfolioModal(null)}
+                onClick={function() { setShowPortfolioModal(null); }}
                 style={{
                   padding: '0.75rem',
                   background: 'transparent',
@@ -1446,7 +984,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
