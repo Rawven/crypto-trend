@@ -507,6 +507,19 @@ export default function Home() {
                     </div>
 
                     <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>💡 {signal.reason || '分析中...'}</p>
+                    
+                    {signal.rsi && (
+                      <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>RSI:</span>
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: '600',
+                          color: parseFloat(signal.rsi) < 35 ? '#4ade80' : parseFloat(signal.rsi) > 65 ? '#f87171' : '#fbbf24'
+                        }}>
+                          {signal.rsi}
+                        </span>
+                      </div>
+                    )}
 
                     {selectedStock?.id === stock.id && (
                       <>
