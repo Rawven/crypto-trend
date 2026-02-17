@@ -265,7 +265,7 @@ export default function Home() {
 
   const fetchPrices = async () => {
     try {
-      const res = await fetch(API_BASE + '/stocks');
+      const res = await fetch(API_BASE + '/crypto/prices');
       const data = await res.json();
       
       const merged = STOCKS_CONFIG.map(config => {

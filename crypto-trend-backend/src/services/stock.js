@@ -218,6 +218,7 @@ export async function getPrices() {
   // 腾讯API支持批量查询，用逗号分隔
   const codes = SUPPORTED_STOCKS.map(s => s.code).join(',');
   const url = `${TENCENT_API}${codes}`;
+  console.log('Fetching from:', url);
   
   try {
     const response = await axios.get(url, { 
@@ -225,10 +226,15 @@ export async function getPrices() {
       responseType: 'arraybuffer'
     });
     
+    console.log('Response status:', response.status);
+    console.log('Response data length:', response.data.length);
+    
     // 处理GBK编码
     const iconv = require('iconv-lite');
     const buffer = Buffer.from(response.data);
     const rawData = iconv.decode(buffer, 'GBK');
+    
+    console.log('Raw data sample:', rawData.substring(0, 200));
     
     // 解析批量返回的数据
     // 格式: v_sh600519="100~股票名称~代码~当前价格~昨收~..."; v_sz000858="..."
@@ -237,7 +243,9 @@ export async function getPrices() {
     // 使用正则提取所有股票数据
     const regex = /v_([^=]+)="([^"]+)"/g;
     let match;
+    let matchCount = 0;
     while ((match = regex.exec(rawData)) !== null) {
+      matchCount++;
       const code = match[1];
       const value = match[2];
       const parsed = parseTencentStock(`v_${code}="${value}"`);
@@ -245,6 +253,7 @@ export async function getPrices() {
         stockDataMap[code] = parsed;
       }
     }
+    console.log('Total matches:', matchCount, 'Valid prices:', Object.keys(stockDataMap).length);
     
     // 遍历支持的股票，匹配数据
     for (const stock of SUPPORTED_STOCKS) {
@@ -270,7 +279,7 @@ export async function getPrices() {
     }
     
   } catch (error) {
-    console.error('批量获取股票失败，尝试逐个获取:', error.message);
+    console.error('批量获取股票失败:', error.message, error.stack);
     
     // 降级: 逐个获取
     for (const stock of SUPPORTED_STOCKS) {
