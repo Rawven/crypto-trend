@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Head from 'next/head';
 import { createChart } from 'lightweight-charts';
 
-const API_BASE = 'http://localhost:3002/api';
+const API_BASE = 'http://localhost:3030/api';
 
 const MOCK_DATA = [
   { id: 'sh600519', symbol: '贵州茅台', name: 'Kweichow Moutai', market: 'A股', price: 1486.6, change24h: 0 },
