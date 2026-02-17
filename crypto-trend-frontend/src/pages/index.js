@@ -28,6 +28,8 @@ export default function Home() {
   const [klineData, setKlineData] = useState(null);
   const [klineLoading, setKlineLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [sectors, setSectors] = useState([]);
+  const [selectedSector, setSelectedSector] = useState(null);
   const [favorites, setFavorites] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('stockFavorites');
@@ -146,15 +148,17 @@ export default function Home() {
 
   const fetchPrices = async () => {
     try {
-      const [pricesRes, signalsRes] = await Promise.all([
+      const [pricesRes, signalsRes, sectorsRes] = await Promise.all([
         fetch(`${API_BASE}/crypto/prices`),
-        fetch(`${API_BASE}/signals`)
+        fetch(`${API_BASE}/signals`),
+        fetch(`${API_BASE}/sectors`)
       ]);
       
       if (!pricesRes.ok) throw new Error('API Error');
       
       const pricesData = await pricesRes.json();
       const signalsData = await signalsRes.json();
+      const sectorsData = await sectorsRes.json();
       
       const signalsMap = {};
       signalsData.forEach(s => {
@@ -167,6 +171,7 @@ export default function Home() {
       }));
       
       setStocks(mergedData);
+      setSectors(sectorsData);
       setLastUpdate(new Date());
     } catch (error) {
       console.log('使用模拟数据', error.message);
@@ -300,6 +305,34 @@ export default function Home() {
         s.name.toLowerCase().includes(keyword) ||
         s.id.toLowerCase().includes(keyword)
       );
+    }
+    
+    // Filter by selected sector
+    if (selectedSector) {
+      const sectorStocks = sectors.find(s => s.name === selectedSector);
+      if (sectorStocks) {
+        // Get stock IDs from sector
+        const sectorNames = {
+          '银行': ['sh600036','sh601988','sh601398','sh600016','sh600000','sz000001','hk00939','hk01398','hk03988','hk00011'],
+          '保险': ['sh601318','hk02318','hk02628','hk02328'],
+          '白酒': ['sh600519','sz000858','sz000596','sz000869'],
+          '科技': ['hk00700','hk09988','hk01810','hk09618','sz002230','sz002415','sh688041','sz300059'],
+          '医药': ['sh600276','sz000538','sz000423','sz300015','sz300122','sz300142','sz300347','sz300750'],
+          '新能源': ['sz002594','sz002714','sz300014','hk00175'],
+          '房地产': ['sz000002','hk00017','hk00016','hk00012'],
+          '通信': ['sh600050','hk00981'],
+          '基建': ['sh601888','sh601668','sh600031','sh600150','hk00267','hk00690','hk00667'],
+          '券商': ['sh600030','hk00388','hk06030','hk06837'],
+          '消费': ['sz000333','sh600690','sz000651','hk03690','hk02331','hk02020'],
+          '能源': ['sh600028','sh601857','sh600309','sh600585','sh600547','hk00386'],
+          '电力': ['sh600900','hk01171'],
+          '物流': ['sh601111','sh600009','sh600018','hk01928','hk00027'],
+          '传媒': ['hk09961','hk01024'],
+          '服装': ['hk02020']
+        };
+        const sectorIds = sectorNames[selectedSector] || [];
+        result = result.filter(s => sectorIds.includes(s.id));
+      }
     }
     
     switch (sortBy) {
@@ -451,6 +484,71 @@ export default function Home() {
               </p>
             </div>
           </div>
+
+          {/* Sector Heat Map */}
+          {sectors.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.9rem' }}>🌡️</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#94a3b8' }}>板块涨跌</span>
+                {selectedSector && (
+                  <button
+                    onClick={() => setSelectedSector(null)}
+                    style={{
+                      padding: '0.125rem 0.5rem',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: 'none',
+                      borderRadius: '4px',
+                      color: '#94a3b8',
+                      fontSize: '0.7rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    清除筛选
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {sectors.map(sector => {
+                  const isPositive = sector.avgChange >= 0;
+                  const intensity = Math.min(Math.abs(sector.avgChange) / 3, 1); // max at 3%
+                  const bgColor = isPositive 
+                    ? `rgba(34, 197, 94, ${0.1 + intensity * 0.4})`
+                    : `rgba(239, 68, 68, ${0.1 + intensity * 0.4})`;
+                  const borderColor = isPositive ? '#22c55e' : '#ef4444';
+                  const isSelected = selectedSector === sector.name;
+                  
+                  return (
+                    <button
+                      key={sector.name}
+                      onClick={() => setSelectedSector(isSelected ? null : sector.name)}
+                      style={{
+                        padding: '0.5rem 0.75rem',
+                        background: bgColor,
+                        border: isSelected ? `2px solid ${borderColor}` : `1px solid ${borderColor}40`,
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        minWidth: '70px'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.75rem', fontWeight: '600', color: isPositive ? '#4ade80' : '#f87171' }}>
+                        {sector.name}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: '700', color: isPositive ? '#4ade80' : '#f87171' }}>
+                        {isPositive ? '↑' : '↓'}{Math.abs(sector.avgChange).toFixed(2)}%
+                      </span>
+                      <span style={{ fontSize: '0.6rem', color: '#94a3b8' }}>
+                        {sector.count}只
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Search & Filter */}
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>

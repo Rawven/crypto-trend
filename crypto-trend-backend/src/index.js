@@ -3,6 +3,7 @@ import cors from 'cors';
 import { initDb } from './db/index.js';
 import cryptoRouter from './routes/crypto.js';
 import signalsRouter from './routes/signals.js';
+import sectorsRouter from './routes/sectors.js';
 import feishuRouter from './routes/feishu.js';
 
 const app = express();
@@ -21,6 +22,7 @@ async function start() {
     // Routes
     app.use('/api/crypto', cryptoRouter);
     app.use('/api/signals', signalsRouter);
+    app.use('/api/sectors', sectorsRouter);
     app.use('/api/feishu', feishuRouter);
     
     // Health check
