@@ -28,6 +28,13 @@ export default function Home() {
   const [klineData, setKlineData] = useState(null);
   const [klineLoading, setKlineLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('darkMode');
+      return saved !== null ? JSON.parse(saved) : true;
+    }
+    return true;
+  });
   const [sectors, setSectors] = useState([]);
   const [selectedSector, setSelectedSector] = useState(null);
   const [favorites, setFavorites] = useState(() => {
@@ -54,6 +61,11 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem('stockFavorites', JSON.stringify(favorites));
   }, [favorites]);
+
+  // Save dark mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
 
   // Portfolio state
   const [portfolio, setPortfolio] = useState(() => {
@@ -531,6 +543,22 @@ export default function Home() {
                   }}
                 >
                   <span>🔄</span> 刷新
+                </button>
+                
+                <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#94a3b8',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  {darkMode ? '🌙' : '☀️'}
                 </button>
               </div>
             </div>
