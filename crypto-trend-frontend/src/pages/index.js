@@ -834,6 +834,43 @@ export default function Home() {
             <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }} />
             
             {[
+              { key: 'all', label: '全部' },
+              { key: 'top_gainers', label: '🚀 涨幅榜' },
+              { key: 'top_losers', label: '💸 跌幅榜' }
+            ].map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => {
+                  if (filter.key === 'top_gainers') {
+                    setSignalFilter('buy');
+                    setSortBy('change_desc');
+                  } else if (filter.key === 'top_losers') {
+                    setSignalFilter('sell');
+                    setSortBy('change_asc');
+                  } else {
+                    setSignalFilter('all');
+                    setSortBy('default');
+                  }
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: (filter.key === 'top_gainers' && sortBy === 'change_desc') || (filter.key === 'top_losers' && sortBy === 'change_asc') ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  color: '#94a3b8',
+                  border: '1px solid',
+                  borderColor: (filter.key === 'top_gainers' && sortBy === 'change_desc') || (filter.key === 'top_losers' && sortBy === 'change_asc') ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.8rem'
+                }}
+              >
+                {filter.label}
+              </button>
+            ))}
+            
+            <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 0.5rem' }} />
+            
+            {[
               { key: 'all', label: '全部信号' },
               { key: 'buy', label: '🟢 买入' },
               { key: 'hold', label: '🟡 持有' },
