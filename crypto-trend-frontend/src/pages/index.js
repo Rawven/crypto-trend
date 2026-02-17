@@ -988,7 +988,7 @@ export default function Home() {
                           padding: '0.25rem',
                           borderRadius: '4px'
                         }}
-                        title={alerts[stock.id] ? `提醒: ${alerts[stock.type === 'above' ? '高于' : '低于'} ¥${alerts[stock.id].price}` : '设置价格提醒'}
+                        title="设置价格提醒"
                       >
                         {alerts[stock.id] ? '🔔' : '🔕'}
                       </button>
