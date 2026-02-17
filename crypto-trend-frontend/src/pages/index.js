@@ -35,6 +35,16 @@ export default function Home() {
     }
     return [];
   });
+  const [alerts, setAlerts] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('stockAlerts');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+  const [showAlertModal, setShowAlertModal] = useState(null);
+  const [alertPrice, setAlertPrice] = useState('');
+  const [alertType, setAlertType] = useState('above');
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
 
@@ -43,6 +53,51 @@ export default function Home() {
     localStorage.setItem('stockFavorites', JSON.stringify(favorites));
   }, [favorites]);
 
+  // Save alerts to localStorage
+  useEffect(() => {
+    localStorage.setItem('stockAlerts', JSON.stringify(alerts));
+  }, [alerts]);
+
+  // Check price alerts when stocks change
+  useEffect(() => {
+    if (!stocks.length || typeof window === 'undefined') return;
+    
+    Object.entries(alerts).forEach(([stockId, alert]) => {
+      const stock = stocks.find(s => s.id === stockId);
+      if (!stock) return;
+      
+      const triggered = 
+        (alert.type === 'above' && stock.price >= alert.price) ||
+        (alert.type === 'below' && stock.price <= alert.price);
+      
+      if (triggered && !alert.triggered) {
+        // Update alert to prevent repeated notifications
+        setAlerts(prev => ({
+          ...prev,
+          [stockId]: { ...alert, triggered: true }
+        }));
+        
+        // Show browser notification
+        if (Notification.permission === 'granted') {
+          new Notification('📢 价格提醒', {
+            body: `${stock.symbol} 当前价格 ${stock.market === '港股' ? 'HK$' : '¥'}${stock.price.toFixed(2)}，${alert.type === 'above' ? '高于' : '低于'}设置的 ¥${alert.price}`,
+            icon: '📊'
+          });
+        }
+        
+        // Also show in-app alert
+        alert(`${stock.symbol} 达到提醒价格! 当前: ${stock.market === '港股' ? 'HK$' : '¥'}${stock.price.toFixed(2)}`);
+      }
+    });
+  }, [stocks]);
+
+  // Request notification permission
+  useEffect(() => {
+    if (typeof window !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   const toggleFavorite = (stockId, e) => {
     e.stopPropagation();
     setFavorites(prev => 
@@ -50,6 +105,38 @@ export default function Home() {
         ? prev.filter(id => id !== stockId)
         : [...prev, stockId]
     );
+  };
+
+  const openAlertModal = (stock, e) => {
+    e.stopPropagation();
+    setSelectedStock(stock);
+    setShowAlertModal(stock);
+    setAlertPrice(stock.price?.toFixed(2) || '');
+    setAlerts(stock.id) ? setAlertType(alerts[stock.id].type) : setAlertType('above');
+  };
+
+  const saveAlert = () => {
+    const price = parseFloat(alertPrice);
+    if (isNaN(price) || price <= 0) return;
+    
+    setAlerts(prev => ({
+      ...prev,
+      [showAlertModal.id]: {
+        price,
+        type: alertType,
+        triggered: false
+      }
+    }));
+    setShowAlertModal(null);
+  };
+
+  const deleteAlert = (stockId, e) => {
+    e.stopPropagation();
+    setAlerts(prev => {
+      const newAlerts = { ...prev };
+      delete newAlerts[stockId];
+      return newAlerts;
+    });
   };
 
   const favoriteStocks = useMemo(() => 
@@ -514,6 +601,23 @@ export default function Home() {
                       >
                         {isFav ? '⭐' : '☆'}
                       </button>
+                      <button
+                        onClick={(e) => openAlertModal(stock, e)}
+                        style={{
+                          position: 'absolute',
+                          top: '1rem',
+                          left: '2.5rem',
+                          background: alerts[stock.id] ? 'rgba(251, 191, 36, 0.2)' : 'none',
+                          border: 'none',
+                          fontSize: '1rem',
+                          cursor: 'pointer',
+                          padding: '0.25rem',
+                          borderRadius: '4px'
+                        }}
+                        title={alerts[stock.id] ? `提醒: ${alerts[stock.type === 'above' ? '高于' : '低于'} ¥${alerts[stock.id].price}` : '设置价格提醒'}
+                      >
+                        {alerts[stock.id] ? '🔔' : '🔕'}
+                      </button>
                       <div style={{
                         position: 'absolute',
                         top: '1rem',
@@ -708,6 +812,129 @@ export default function Home() {
           </div>
         </main>
       </div>
+
+      {/* Alert Modal */}
+      {showAlertModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }} onClick={() => setShowAlertModal(null)}>
+          <div style={{
+            background: '#1e293b',
+            borderRadius: '16px',
+            padding: '1.5rem',
+            width: '90%',
+            maxWidth: '400px',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              🔔 价格提醒
+            </h3>
+            <p style={{ color: '#94a3b8', marginBottom: '1rem' }}>
+              {showAlertModal.symbol} - {showAlertModal.name}
+            </p>
+            <p style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+              当前价格: {showAlertModal.market === '港股' ? 'HK$' : '¥'}{showAlertModal.price?.toFixed(2)}
+            </p>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                提醒类型
+              </label>
+              <select
+                value={alertType}
+                onChange={(e) => setAlertType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: '#0f172a',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <option value="above">高于此价格提醒</option>
+                <option value="below">低于此价格提醒</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                提醒价格
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={alertPrice}
+                onChange={(e) => setAlertPrice(e.target.value)}
+                placeholder="输入价格"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: '#0f172a',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={saveAlert}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#0f172a',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                保存提醒
+              </button>
+              {alerts[showAlertModal.id] && (
+                <button
+                  onClick={(e) => deleteAlert(showAlertModal.id, e)}
+                  style={{
+                    padding: '0.75rem',
+                    background: '#ef4444',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  删除
+                </button>
+              )}
+              <button
+                onClick={() => setShowAlertModal(null)}
+                style={{
+                  padding: '0.75rem',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  color: '#94a3b8',
+                  cursor: 'pointer'
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
